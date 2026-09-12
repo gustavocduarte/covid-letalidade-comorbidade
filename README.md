@@ -6,9 +6,14 @@ Brasil**, usando dados reais do SIVEP-Gripe (Ministério da Saúde).
 
 ## Print do dashboard
 
-<!-- Substitua a linha abaixo pelo print do dashboard (ex: salve a imagem em
-     docs/screenshot.png e troque o caminho). -->
-![Dashboard](docs/screenshot.png)
+![Taxa de letalidade por comorbidade](docs/screenshot-comorbidades.png)
+Taxa de letalidade por comorbidade — comparação entre quem tem e quem não tem cada condição.
+
+![Mapa de letalidade por estado](docs/screenshot-mapa.png)
+Mapa coroplético do Brasil com a taxa de letalidade de COVID-19 por estado.
+
+![Casos por estado ao longo do tempo](docs/screenshot-linha-tempo.png)
+Comparação da curva de casos entre estados ao longo do tempo, normalizada pelo pico de cada um.
 
 ## O que este projeto faz
 
