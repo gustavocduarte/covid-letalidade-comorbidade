@@ -1,0 +1,24 @@
+# Ambiente virtual — cada pessoa recria o seu (veja o README)
+.venv/
+
+# Dados brutos baixados do SIVEP-Gripe (~4,9 GB) — reproduzíveis rodando src/pipeline.py
+data/raw/
+
+# Cache/arquivos temporários gerados automaticamente
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# Configuração local de ferramentas (não é conteúdo do projeto)
+.claude/
+.vscode/
+.idea/
+
+# Segredos/config local — não existe hoje, mas fica pronto pra não vazar por acidente
+.env
+.streamlit/secrets.toml
+
+# Arquivos de sistema operacional
+.DS_Store
+Thumbs.db
