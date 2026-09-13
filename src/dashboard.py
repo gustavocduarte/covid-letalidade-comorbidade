@@ -479,8 +479,8 @@ st.markdown(
             Das 11 comorbidades analisadas, a <strong>Doença Renal Crônica</strong> aparece com o
             maior risco: pacientes com essa condição têm uma taxa de letalidade de COVID-19
             quase <strong>1,5 vez maior</strong> do que pacientes sem ela (53% contra 37%, somando
-            os 7 anos de dados). Doença Neurológica e Pneumopatia aparecem logo atrás, numa faixa
-            de risco parecida.
+            os 7 anos de dados). <strong>Doença Hepática Crônica</strong> aparece logo atrás (51%),
+            seguida por Doença Neurológica e Pneumopatia, numa faixa de risco também alta.
         </p>
         <p style="color:{COR_TEXTO}; margin:0 0 0.75rem 0; line-height:1.55;">
             O número de casos caiu de forma acentuada depois do início da vacinação no Brasil
