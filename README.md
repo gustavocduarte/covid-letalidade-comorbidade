@@ -43,6 +43,12 @@ identificadas) está documentada dentro do próprio dashboard, na seção
 
 Estas instruções assumem que você nunca viu este projeto antes e está começando do zero.
 
+> **Só quer ver o dashboard funcionando?** Os passos 5, 6 e 7 são **opcionais**.
+> Os dados já processados (e o contorno geográfico dos estados) vêm prontos dentro
+> do repositório, então você pode pular direto do passo 4 pro passo 8. Esses três
+> passos só são necessários se você quiser gerar os dados novamente do zero — o que
+> baixa ~4,9 GB de dados brutos do SIVEP-Gripe e pode demorar bastante.
+
 ### 1. Pré-requisitos
 
 - Python 3.11 ou mais recente instalado ([python.org](https://www.python.org/downloads/)).
@@ -51,7 +57,8 @@ Estas instruções assumem que você nunca viu este projeto antes e está começ
 ### 2. Baixar o projeto e entrar na pasta
 
 ```bash
-cd covid
+git clone https://github.com/gustavocduarte/covid-letalidade-comorbidade.git
+cd covid-letalidade-comorbidade
 ```
 
 ### 3. Criar e ativar um ambiente virtual
@@ -79,7 +86,10 @@ source .venv/bin/activate       # Linux / macOS
 pip install -r requirements.txt
 ```
 
-### 5. Rodar o pipeline de dados (extração + tratamento + carga)
+### 5. Rodar o pipeline de dados (extração + tratamento + carga) — opcional
+
+*Pule para o passo 8 se você só quer ver o dashboard funcionando com os dados que já
+vêm prontos no repositório.*
 
 Isso baixa os 7 anos de dados brutos do SIVEP-Gripe (~4,9 GB no total — pode demorar
 dependendo da sua internet) e gera os arquivos processados usados pelo dashboard. Os
@@ -90,13 +100,13 @@ acontece uma vez.
 python src/pipeline.py
 ```
 
-### 6. Baixar o contorno geográfico dos estados (pro mapa)
+### 6. Baixar o contorno geográfico dos estados (pro mapa) — opcional
 
 ```bash
 python src/baixar_geojson.py
 ```
 
-### 7. Gerar a série semanal de casos por estado
+### 7. Gerar a série semanal de casos por estado — opcional
 
 ```bash
 python src/gerar_serie_estado.py
@@ -111,6 +121,15 @@ streamlit run src/dashboard.py
 Abra **http://localhost:8501** no navegador.
 
 ### Rodar os testes automatizados (opcional)
+
+O pytest não está em `requirements.txt` (só é necessário pra rodar os testes, não
+pro dashboard em si), então instale-o primeiro:
+
+```bash
+pip install pytest
+```
+
+Depois, rode:
 
 ```bash
 pytest
