@@ -5,7 +5,7 @@ estiver em data/raw/) e calcula a letalidade por comorbidade. Os CSVs brutos
 ficam salvos permanentemente — não são mais apagados no final.
 """
 
-from datetime import date
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -25,7 +25,7 @@ NOME_CACHE_DETALHADO = "casos_covid_detalhado.csv"
 
 # O ano corrente ainda está em andamento (banco "vivo", atualizado toda semana),
 # então seus dados são parciais e não devem ser comparados como se fosse um ano cheio.
-ANO_ATUAL = date.today().year
+ANO_ATUAL = datetime.now(tz=timezone.utc).date().year
 
 
 def processar_ano(ano: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:

@@ -138,7 +138,7 @@ pytest
 ## Estrutura de pastas
 
 ```
-covid/
+covid-letalidade-comorbidade/
 ├── data/
 │   ├── raw/          # CSVs brutos do SIVEP-Gripe, um por ano (gerado pelo passo 5)
 │   ├── processed/    # Dados já tratados, usados pelo dashboard (gerado pelos passos 5-7)
