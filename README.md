@@ -1,5 +1,9 @@
 # Letalidade de COVID-19 por Comorbidade — Brasil
 
+![Testes](https://github.com/gustavocduarte/covid-letalidade-comorbidade/actions/workflows/tests.yml/badge.svg)
+
+**[🔴 Ver o dashboard ao vivo](https://letalidade-covid-brasil.streamlit.app/)**
+
 Pipeline de ETL (extração, tratamento e carga) e dashboard interativo que analisa a
 **taxa de letalidade de COVID-19 por comorbidade, por estado e ao longo do tempo no
 Brasil**, usando dados reais do SIVEP-Gripe (Ministério da Saúde).
