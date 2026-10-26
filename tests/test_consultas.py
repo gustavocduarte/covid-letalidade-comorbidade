@@ -13,6 +13,7 @@ from consultas import (
     serie_semanal_por_comorbidade,
     serie_semanal_por_estado,
 )
+from conversao import csv_para_parquet
 from transform import (
     agregar_estados_todos_anos,
     agregar_todos_anos,
@@ -171,3 +172,28 @@ def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
         ("2021-01-11", "BA", 1), ("2021-01-11", "ZZ", 1),
     ]
     assert serie["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
+
+
+def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero_como_o_pandas(tmp_path, csvs_sinteticos, assert_iguais):
+    cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
+    # só um caso que não é COVID (CLASSI_FIN = 4): o Parquet do ano sai com 0 linhas
+    csv_vazio = tmp_path / "INFLUD22-sintetico.csv"
+    csv_vazio.write_text(cabecalho + "\n0001;2022-01-03;2022-01-03;F;SP;X;;;1;;;2;;;;;;4;1\n", encoding="utf-8")
+    csvs = {**csvs_sinteticos, 2022: csv_vazio}
+    pasta = tmp_path / "detalhado"
+    for ano, csv in csvs.items():
+        csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
+
+    with abrir_casos(pasta) as conexao:
+        obtido = letalidade_por_comorbidade_por_ano(conexao)
+
+    esperado = pd.concat(
+        [letalidade_por_comorbidade(carregar_casos_covid(csv)).assign(ano=ano) for ano, csv in csvs.items()],
+        ignore_index=True,
+    )
+    esperado = esperado[["ano", *[c for c in esperado.columns if c != "ano"]]]
+    assert_iguais(obtido, esperado)
+    do_ano_vazio = obtido[obtido["ano"] == 2022]
+    assert len(do_ano_vazio) == 11
+    assert (do_ano_vazio.filter(like="casos").sum().sum(), do_ano_vazio.filter(like="obitos").sum().sum()) == (0, 0)
+    assert do_ano_vazio["taxa_letalidade_com"].isna().all()

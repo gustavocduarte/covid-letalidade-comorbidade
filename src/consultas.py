@@ -37,6 +37,10 @@ def abrir_casos(pasta_detalhado: Path, limite_memoria: str = DUCKDB_LIMITE_MEMOR
             con.execute(f"SET memory_limit = '{limite_memoria}'")
             con.execute(f"SET temp_directory = '{Path(pasta_temp).as_posix()}'")
             con.execute(f"CREATE VIEW casos AS SELECT * FROM read_parquet('{glob}', hive_partitioning=true)")
+            # Anos pelos arquivos, não pelas linhas: um ano sem nenhum caso de COVID tem Parquet vazio.
+            con.execute(
+                f"CREATE VIEW anos AS SELECT regexp_extract(file, 'ano=([0-9]+)', 1)::BIGINT AS ano FROM glob('{glob}')"
+            )
             yield con
         finally:
             con.close()
@@ -70,15 +74,26 @@ def _sql_letalidade_por_comorbidade(por_ano: bool) -> str:
                    f'{taxa("com")}, {taxa("sem")}')
 
     # INCLUDE NULLS mantém as comorbidades nunca preenchidas (linha com zeros, como no pandas).
+    # Por ano, a grade ano x comorbidade também devolve as 11 linhas de zeros de um ano sem casos.
+    nomes = ("casos_com", "obitos_com", "desfecho_conhecido_com", "casos_sem", "obitos_sem", "desfecho_conhecido_sem")
+    if por_ano:
+        zeros = ", ".join(f"coalesce(b.{n}, 0) AS {n}" for n in nomes)
+        completo = f"""SELECT g.ano, g.comorbidade, {zeros}
+            FROM (SELECT ano, unnest([{lista}]) AS comorbidade FROM anos) g
+                LEFT JOIN base b ON b.ano = g.ano AND b.comorbidade = g.comorbidade"""
+    else:
+        completo = "SELECT * FROM base"
     return f"""
         WITH base AS (
             SELECT {chave}comorbidade,{contagens("com", COMORBIDADE_SIM)},{contagens("sem", COMORBIDADE_NAO)}
             FROM (SELECT ano, EVOLUCAO, {colunas} FROM casos)
                 UNPIVOT INCLUDE NULLS (valor FOR comorbidade IN ({colunas}))
             GROUP BY {chave}comorbidade
+        ), completo AS (
+            {completo}
         )
         SELECT {chave}comorbidade, {selecao}
-        FROM base
+        FROM completo
         ORDER BY {chave}taxa_letalidade_com DESC NULLS LAST, {desempate}
     """
 
