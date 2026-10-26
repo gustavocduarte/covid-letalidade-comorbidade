@@ -64,6 +64,8 @@ def processar_ano(ano: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, p
     print(f"[{ano}] Gravando no cache de casos detalhados...")
     covid_cache = covid.drop(columns=["CLASSI_FIN"]).copy()  # CLASSI_FIN já é sempre 5 aqui
     covid_cache["ano"] = ano
+    # TODO (CLI/--anos): com subconjunto de anos, min(URLS_SRAG) pode não estar entre eles
+    # e o cache ficaria sem cabeçalho; tratar junto da execução incremental.
     anexar_csv(covid_cache, NOME_CACHE_DETALHADO, primeiro_bloco=(ano == min(URLS_SRAG)))
 
     tamanho_gb = caminho_csv.stat().st_size / 1e9
@@ -72,7 +74,8 @@ def processar_ano(ano: int) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, p
     return tabela, semanal, semanal_comorbidade, tabela_estado
 
 
-if __name__ == "__main__":
+def executar_pipeline() -> None:
+    """Roda o ETL completo para todos os anos de URLS_SRAG."""
     resultados = [processar_ano(ano) for ano in sorted(URLS_SRAG)]
     tabelas = [tabela for tabela, _, _, _ in resultados]
     series_semanais = [semanal for _, semanal, _, _ in resultados]
@@ -128,3 +131,7 @@ if __name__ == "__main__":
     agregado_estado = agregar_estados_todos_anos(tabelas_estado)
     caminho_estado = salvar_csv(agregado_estado, "letalidade_por_estado_agregado.csv")
     print(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: {caminho_estado}")
+
+
+if __name__ == "__main__":
+    executar_pipeline()
