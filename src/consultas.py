@@ -91,3 +91,36 @@ def letalidade_por_comorbidade_por_ano(con: duckdb.DuckDBPyConnection) -> pd.Dat
 def letalidade_por_comorbidade_agregado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """Letalidade por comorbidade somando todos os anos (soma óbitos e desfechos antes de dividir)."""
     return con.execute(_sql_letalidade_por_comorbidade(por_ano=False)).df()
+
+
+def _sql_letalidade_por_estado(por_ano: bool) -> str:
+    chave = "ano, " if por_ano else ""
+    # Casos sem UF ficam de fora (o groupby do pandas também os descarta). Empate de taxa: a versão
+    # pandas ordena por sigla por ano e, no agregado, pela ordem alfabética do groupby.
+    ordem = "ano, sigla" if por_ano else "taxa_letalidade DESC NULLS LAST, sigla"
+    return f"""
+        WITH base AS (
+            SELECT {chave}SG_UF AS sigla,
+                count(*) AS casos,
+                count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_OBITO}) AS obitos,
+                count(*) FILTER (WHERE EVOLUCAO IN ({EVOLUCAO_CURA}, {EVOLUCAO_OBITO})) AS desfecho_conhecido
+            FROM casos
+            WHERE SG_UF IS NOT NULL
+            GROUP BY {chave}SG_UF
+        )
+        SELECT {chave}sigla, casos, obitos, desfecho_conhecido,
+            CASE WHEN desfecho_conhecido = 0 THEN NULL ELSE obitos::DOUBLE / desfecho_conhecido END
+                AS taxa_letalidade
+        FROM base
+        ORDER BY {ordem}
+    """
+
+
+def letalidade_por_estado_por_ano(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Casos, óbitos e letalidade por UF de residência em cada ano (colunas de `letalidade_por_estado`, mais `ano`)."""
+    return con.execute(_sql_letalidade_por_estado(por_ano=True)).df()
+
+
+def letalidade_por_estado_agregado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Letalidade por UF somando todos os anos (soma óbitos e desfechos antes de dividir)."""
+    return con.execute(_sql_letalidade_por_estado(por_ano=False)).df()
