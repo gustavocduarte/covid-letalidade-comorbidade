@@ -1,0 +1,145 @@
+{
+ "versao": 1,
+ "aprovado": true,
+ "anos": {
+  "2020": {
+   "linhas": 722119,
+   "sem_uf": 56,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 40097,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 56
+  },
+  "2021": {
+   "linhas": 1224863,
+   "sem_uf": 210,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 79290,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 210
+  },
+  "2022": {
+   "linhas": 240456,
+   "sem_uf": 48,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 16897,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 48
+  },
+  "2023": {
+   "linhas": 50206,
+   "sem_uf": 5,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 4156,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 5
+  },
+  "2024": {
+   "linhas": 31178,
+   "sem_uf": 8,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 2408,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 8
+  },
+  "2025": {
+   "linhas": 17975,
+   "sem_uf": 4,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 1336,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 4
+  },
+  "2026": {
+   "linhas": 4482,
+   "sem_uf": 2,
+   "uf_invalida": 0,
+   "sem_data": 0,
+   "data_fora_janela": 0,
+   "sem_desfecho": 513,
+   "evolucao_invalida": 0,
+   "comorbidade_invalida": 0,
+   "fora_da_serie_estado": 2
+  }
+ },
+ "totais": {
+  "linhas": 2291279,
+  "sem_uf": 333,
+  "uf_invalida": 0,
+  "sem_data": 0,
+  "data_fora_janela": 0,
+  "sem_desfecho": 144697,
+  "evolucao_invalida": 0,
+  "comorbidade_invalida": 0,
+  "fora_da_serie_estado": 333
+ },
+ "achados": [
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2020,
+   "quantidade": 56,
+   "mensagem": "2020: 56 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2021,
+   "quantidade": 210,
+   "mensagem": "2021: 210 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2022,
+   "quantidade": 48,
+   "mensagem": "2022: 48 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2023,
+   "quantidade": 5,
+   "mensagem": "2023: 5 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2024,
+   "quantidade": 8,
+   "mensagem": "2024: 8 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2025,
+   "quantidade": 4,
+   "mensagem": "2025: 4 casos sem UF; ficam fora das tabelas por estado."
+  },
+  {
+   "nivel": "aviso",
+   "codigo": "SEM_UF",
+   "ano": 2026,
+   "quantidade": 2,
+   "mensagem": "2026: 2 casos sem UF; ficam fora das tabelas por estado."
+  }
+ ]
+}

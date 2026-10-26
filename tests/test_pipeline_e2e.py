@@ -4,6 +4,7 @@ Os valores esperados foram calculados à mão a partir de tests/fixtures/ (2 ano
 de borda: EVOLUCAO 1/2/3/9/vazio, CLASSI_FIN != 5, UF inválida ou vazia, data inválida ou vazia).
 """
 
+import json
 from pathlib import Path
 
 import duckdb
@@ -12,6 +13,7 @@ import pytest
 
 import load
 import pipeline
+import validacao
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 URLS_SINTETICAS = {
@@ -25,11 +27,7 @@ def pasta_detalhado(tmp_path_factory) -> Path:
     return tmp_path_factory.mktemp("detalhado")
 
 
-@pytest.fixture(scope="module")
-def saidas(tmp_path_factory, pasta_detalhado) -> Path:
-    mp = pytest.MonkeyPatch()
-    destino = tmp_path_factory.mktemp("processed")
-
+def _apontar_pipeline_para_amostra(mp: pytest.MonkeyPatch, processed: Path, detalhado: Path) -> None:
     def sem_rede(*_args, **_kwargs):
         raise AssertionError("o pipeline tentou baixar um arquivo")
 
@@ -37,8 +35,17 @@ def saidas(tmp_path_factory, pasta_detalhado) -> Path:
     mp.setattr(pipeline, "PASTA_RAW", FIXTURES)
     mp.setattr(pipeline, "baixar_arquivo", sem_rede)
     mp.setattr(pipeline, "ANO_ATUAL", 2021)
-    mp.setattr(pipeline, "PASTA_DETALHADO", pasta_detalhado)
-    mp.setattr(load, "PROCESSED_DIR", destino)
+    mp.setattr(pipeline, "PASTA_DETALHADO", detalhado)
+    mp.setattr(load, "PROCESSED_DIR", processed)
+
+
+@pytest.fixture(scope="module")
+def saidas(tmp_path_factory, pasta_detalhado) -> Path:
+    mp = pytest.MonkeyPatch()
+    destino = tmp_path_factory.mktemp("processed")
+    _apontar_pipeline_para_amostra(mp, destino, pasta_detalhado)
+    # A amostra tem datas inválidas de propósito (2 de 14 casos em 2020), acima do limite de erro.
+    mp.setattr(validacao, "LIMITE_DATA_INVALIDA", 1.0)
     try:
         pipeline.executar_pipeline()
     finally:
@@ -59,6 +66,7 @@ def test_gera_todos_os_arquivos(saidas):
         "letalidade_por_comorbidade_todos_anos.csv", "letalidade_por_comorbidade_agregado.csv",
         "casos_covid_por_semana.csv", "casos_covid_semanal_por_comorbidade.csv",
         "letalidade_por_estado_agregado.csv", "casos_covid_por_semana_estado.csv",
+        "relatorio_qualidade.json",
     }
     assert {p.name for p in saidas.iterdir()} == esperados
 
@@ -178,3 +186,29 @@ def test_parquets_guardam_so_covid_sem_classi_fin(saidas, pasta_detalhado):
     assert "CLASSI_FIN" not in df.columns
     assert {"DT_SIN_PRI", "SG_UF", "EVOLUCAO", "ano", "DIABETES"} <= set(df.columns)
     assert df["ano"].value_counts().to_dict() == {2020: 14, 2021: 8}
+
+
+def test_relatorio_de_qualidade_da_amostra(saidas):
+    relatorio = json.loads((saidas / "relatorio_qualidade.json").read_text(encoding="utf-8"))
+
+    assert relatorio["aprovado"] is True  # com o limite de data afrouxado pela fixture
+    assert relatorio["totais"]["linhas"] == 22
+    assert relatorio["totais"]["sem_uf"] == 1  # o caso sem UF fica fora da tabela por estado
+    assert relatorio["anos"]["2020"]["uf_invalida"] == 1 and relatorio["anos"]["2021"]["uf_invalida"] == 1
+    assert {a["codigo"] for a in relatorio["achados"]} == {
+        "DATA_INVALIDA", "SEM_UF", "UF_INVALIDA", "SEM_DESFECHO_ACIMA_DO_LIMITE",
+    }
+
+
+def test_erro_de_validacao_grava_o_relatorio_e_nenhum_csv(tmp_path, monkeypatch):
+    processed, detalhado = tmp_path / "processed", tmp_path / "detalhado"
+    _apontar_pipeline_para_amostra(monkeypatch, processed, detalhado)  # limite padrão: 2 de 14 datas inválidas é erro
+
+    with pytest.raises(validacao.ErroDeValidacao, match="DATA_INVALIDA"):
+        pipeline.executar_pipeline()
+
+    assert [p.name for p in processed.iterdir()] == ["relatorio_qualidade.json"]
+    relatorio = json.loads((processed / "relatorio_qualidade.json").read_text(encoding="utf-8"))
+    assert relatorio["aprovado"] is False
+    primeiro = relatorio["achados"][0]
+    assert (primeiro["nivel"], primeiro["codigo"], primeiro["ano"]) == ("erro", "DATA_INVALIDA", 2020)

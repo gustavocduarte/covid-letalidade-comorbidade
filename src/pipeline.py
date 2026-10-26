@@ -5,12 +5,14 @@ em Parquet só com os casos de COVID e as colunas usadas (DuckDB). As tabelas de
 consultas SQL sobre esses Parquets. Os CSVs brutos ficam salvos permanentemente.
 """
 
+import sys
 from datetime import UTC, datetime
 
 from config import (
     NOME_AGREGADO,
     NOME_ESTADO,
     NOME_PARQUET_ANO,
+    NOME_RELATORIO,
     NOME_SEMANAL,
     NOME_SEMANAL_COMORBIDADE,
     NOME_SEMANAL_ESTADO,
@@ -30,7 +32,15 @@ from consultas import (
 )
 from conversao import csv_para_parquet
 from extract import baixar_arquivo
-from load import salvar_csv
+from load import salvar_csv, salvar_json
+from validacao import (
+    ERRO,
+    ErroDeValidacao,
+    estatisticas_por_ano,
+    montar_relatorio,
+    validar_casos,
+    validar_saidas,
+)
 
 # O ano corrente ainda está em andamento (banco "vivo", atualizado toda semana),
 # então seus dados são parciais e não devem ser comparados como se fosse um ano cheio.
@@ -61,42 +71,58 @@ def processar_ano(ano: int) -> int:
 
 
 def executar_pipeline() -> None:
-    """Roda o ETL completo para todos os anos de URLS_SRAG."""
+    """Roda o ETL completo para todos os anos de URLS_SRAG.
+
+    Calcula todas as tabelas, valida e grava o relatório de qualidade; só grava os CSVs de saída se não
+    houver erro de validação (senão levanta ErroDeValidacao e os CSVs anteriores ficam como estavam).
+    """
     for ano in sorted(URLS_SRAG):
         processar_ano(ano)
 
     with abrir_casos(PASTA_DETALHADO, anos=URLS_SRAG) as con:
+        estatisticas = estatisticas_por_ano(con)
         por_ano = letalidade_por_comorbidade_por_ano(con)
         por_ano.insert(1, "ano_completo", por_ano["ano"] != ANO_ATUAL)
-        caminho = salvar_csv(por_ano, NOME_TODOS_ANOS)
-        print(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
-        print(f"Total de linhas: {len(por_ano)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
-
-        # Agregado: soma óbitos e desfechos conhecidos de todos os anos (2020-2026, incluindo
-        # o ano corrente parcial) numa única taxa por comorbidade. É o que o dashboard usa hoje,
-        # antes de existir o filtro de ano.
         agregado = letalidade_por_comorbidade_agregado(con)
-        print(f"Agregado (todos os anos somados) salvo em: {salvar_csv(agregado, NOME_AGREGADO)}")
-
         # As séries somam os anos direto, então os dois pedaços de uma semana na virada do ano
         # (sintomas em 30/dez, notificação em jan, arquivo do ano seguinte) saem juntos.
         serie_semanal = serie_semanal_casos(con)
-        print(f"Série semanal ({len(serie_semanal)} semanas) salva em: {salvar_csv(serie_semanal, NOME_SEMANAL)}")
-
         serie_comorbidade = serie_semanal_por_comorbidade(con)
-        print(f"Série semanal por comorbidade ({len(serie_comorbidade)} linhas) salva em: "
-              f"{salvar_csv(serie_comorbidade, NOME_SEMANAL_COMORBIDADE)}")
-
         serie_estado = serie_semanal_por_estado(con)
-        print(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
-              f"{salvar_csv(serie_estado, NOME_SEMANAL_ESTADO)}")
-
         agregado_estado = letalidade_por_estado_agregado(con)
-        print(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
-              f"{salvar_csv(agregado_estado, NOME_ESTADO)}")
 
+    achados = validar_casos(estatisticas) + validar_saidas(
+        estatisticas, por_ano=por_ano, agregado=agregado, estado=agregado_estado,
+        serie_semanal=serie_semanal, serie_comorbidade=serie_comorbidade, serie_estado=serie_estado,
+    )
+    relatorio = montar_relatorio(estatisticas, achados)
+    print(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
+    for achado in achados:
+        print(f"  [{achado.nivel.upper()}] {achado.mensagem}")
+    erros = [a for a in achados if a.nivel == ERRO]
+    if erros:
+        raise ErroDeValidacao(erros)
+
+    caminho = salvar_csv(por_ano, NOME_TODOS_ANOS)
+    print(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
+    print(f"Total de linhas: {len(por_ano)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
+    # Agregado: soma óbitos e desfechos conhecidos de todos os anos (2020-2026, incluindo
+    # o ano corrente parcial) numa única taxa por comorbidade. É o que o dashboard usa hoje,
+    # antes de existir o filtro de ano.
+    print(f"Agregado (todos os anos somados) salvo em: {salvar_csv(agregado, NOME_AGREGADO)}")
+    print(f"Série semanal ({len(serie_semanal)} semanas) salva em: {salvar_csv(serie_semanal, NOME_SEMANAL)}")
+    print(f"Série semanal por comorbidade ({len(serie_comorbidade)} linhas) salva em: "
+          f"{salvar_csv(serie_comorbidade, NOME_SEMANAL_COMORBIDADE)}")
+    print(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
+          f"{salvar_csv(serie_estado, NOME_SEMANAL_ESTADO)}")
+    print(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
+          f"{salvar_csv(agregado_estado, NOME_ESTADO)}")
     print(f"\nCasos de COVID por ano (Parquet, uso futuro, sem precisar rebaixar) em: {PASTA_DETALHADO}")
 
 
 if __name__ == "__main__":
-    executar_pipeline()
+    try:
+        executar_pipeline()
+    except ErroDeValidacao as erro:
+        print(f"\nValidação falhou, nenhum CSV de saída foi gravado:\n{erro}", file=sys.stderr)
+        sys.exit(1)

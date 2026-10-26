@@ -22,6 +22,7 @@ from config import (
     EVOLUCAO_OBITO,
     NOME_CACHE_DETALHADO,
     NOME_PARQUET_ANO,
+    NOME_RELATORIO,
 )
 from extract import URLS_SRAG
 
@@ -100,6 +101,13 @@ def test_saida_igual_a_versionada(saidas_geradas, nome):
     assert_frame_equal(gerado[colunas_exatas], esperado[colunas_exatas], check_exact=True)
     if colunas_taxa:
         assert_frame_equal(gerado[colunas_taxa], esperado[colunas_taxa], check_exact=False, rtol=TOLERANCIA_TAXA)
+
+
+def test_relatorio_de_qualidade_igual_ao_versionado(saidas_geradas):
+    gerado = json.loads((saidas_geradas / NOME_RELATORIO).read_text(encoding="utf-8"))
+    esperado = json.loads((PROCESSADOS / NOME_RELATORIO).read_text(encoding="utf-8"))
+
+    assert gerado == esperado
 
 
 def test_parquets_iguais_ao_cache_csv_anterior(saidas_geradas):

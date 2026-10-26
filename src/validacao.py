@@ -40,6 +40,14 @@ class Achado:
     mensagem: str
 
 
+class ErroDeValidacao(Exception):
+    """Dados reprovados na validação: as saídas não devem ser gravadas."""
+
+    def __init__(self, erros: list[Achado]):
+        self.erros = erros
+        super().__init__("\n".join(f"- [{e.codigo}] {e.mensagem}" for e in erros))
+
+
 def _lista_sql(valores) -> str:
     return ", ".join(f"'{v}'" if isinstance(v, str) else str(v) for v in valores)
 
