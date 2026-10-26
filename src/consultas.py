@@ -152,3 +152,14 @@ def serie_semanal_por_comorbidade(con: duckdb.DuckDBPyConnection) -> pd.DataFram
         GROUP BY comorbidade, semana
         ORDER BY comorbidade, semana
     """).df()
+
+
+def serie_semanal_por_estado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Casos por semana e UF de residência; casos sem data válida ou sem UF ficam de fora."""
+    return con.execute("""
+        SELECT date_trunc('week', DT_SIN_PRI) AS semana, SG_UF AS sigla, count(*) AS casos
+        FROM casos
+        WHERE DT_SIN_PRI IS NOT NULL AND SG_UF IS NOT NULL
+        GROUP BY semana, sigla
+        ORDER BY semana, sigla
+    """).df()

@@ -11,6 +11,7 @@ from consultas import (
     letalidade_por_estado_por_ano,
     serie_semanal_casos,
     serie_semanal_por_comorbidade,
+    serie_semanal_por_estado,
 )
 from transform import (
     agregar_estados_todos_anos,
@@ -22,6 +23,9 @@ from transform import (
 )
 from transform import (
     serie_semanal_por_comorbidade as serie_semanal_por_comorbidade_pandas,
+)
+from transform import (
+    serie_semanal_por_estado as serie_semanal_por_estado_pandas,
 )
 
 
@@ -146,3 +150,24 @@ def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
     assert da("SIND_DOWN") == {"2020-12-28": 2, "2021-01-04": 1}  # a semana da virada soma os dois anos
     assert da("ASMA") == {}  # sem casos: nenhuma linha
     assert len(serie) == 12
+
+
+def test_serie_semanal_por_estado_igual_ao_pandas(con, casos_pandas, assert_iguais):
+    # gerar_serie_estado.py roda a função pandas sobre os casos de todos os anos juntos
+    esperado = serie_semanal_por_estado_pandas(pd.concat(list(casos_pandas.values()), ignore_index=True))
+
+    assert_iguais(serie_semanal_por_estado(con), esperado)
+
+
+def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
+    serie = serie_semanal_por_estado(con)
+
+    obtido = list(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["sigla"], serie["casos"], strict=True))
+    assert obtido == [
+        ("2020-03-02", "SP", 2), ("2020-03-09", "MG", 2), ("2020-03-09", "RJ", 3),
+        ("2020-03-16", "MG", 1), ("2020-03-16", "SP", 1), ("2020-03-16", "XX", 1),
+        ("2020-12-28", "SP", 2),  # 30/dez/2020 + 01/jan/2021
+        ("2021-01-04", "BA", 2), ("2021-01-04", "RJ", 2), ("2021-01-04", "SP", 1),
+        ("2021-01-11", "BA", 1), ("2021-01-11", "ZZ", 1),
+    ]
+    assert serie["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
