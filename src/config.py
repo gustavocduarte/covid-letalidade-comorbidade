@@ -44,6 +44,7 @@ NOME_SEMANAL = "casos_covid_por_semana.csv"
 NOME_SEMANAL_COMORBIDADE = "casos_covid_semanal_por_comorbidade.csv"
 NOME_ESTADO = "letalidade_por_estado_agregado.csv"
 NOME_SEMANAL_ESTADO = "casos_covid_por_semana_estado.csv"
+NOME_RELATORIO = "relatorio_qualidade.json"
 
 # As 11 colunas de comorbidade do SIVEP-Gripe (confirmadas no dicionário de dados oficial).
 # TABAG (Tabagismo) existe no formulário oficial, mas não entra aqui: checamos e o campo
@@ -82,3 +83,20 @@ EVOLUCAO_CURA = 1
 EVOLUCAO_OBITO = 2
 COMORBIDADE_SIM = 1
 COMORBIDADE_NAO = 2
+
+# Validação dos dados (src/validacao.py).
+UFS_VALIDAS = [
+    "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA",
+    "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+]
+# Domínios do dicionário de dados: EVOLUCAO 1 cura, 2 óbito, 3 óbito por outras causas, 9 ignorado;
+# comorbidade 1 sim, 2 não, 9 ignorado. Vazio (nulo) vale em todas.
+EVOLUCAO_DOMINIO = (1, 2, 3, 9)
+COMORBIDADE_DOMINIO = (1, 2, 9)
+# Os arquivos anuais são cortados por semana epidemiológica, então as datas de início dos sintomas
+# podem passar do ano civil por alguns dias (ex.: o arquivo de 2025 vai até 03/01/2026).
+JANELA_DATA_DIAS = 7
+# Fração de casos com data ausente ou fora da janela: acima disso é erro; até aí, só aviso.
+LIMITE_DATA_INVALIDA = 0.01
+# Fração de casos sem desfecho conhecido acima da qual se emite aviso.
+LIMITE_SEM_DESFECHO = 0.20
