@@ -139,3 +139,16 @@ def serie_semanal_casos(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         GROUP BY semana
         ORDER BY semana
     """).df()
+
+
+def serie_semanal_por_comorbidade(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Casos por semana e comorbidade (só quem tem a condição); um caso com duas entra nas duas."""
+    colunas = ", ".join(COMORBIDADES)
+    return con.execute(f"""
+        SELECT date_trunc('week', DT_SIN_PRI) AS semana, comorbidade, count(*) AS casos
+        FROM (SELECT DT_SIN_PRI, {colunas} FROM casos)
+            UNPIVOT (valor FOR comorbidade IN ({colunas}))
+        WHERE valor = {COMORBIDADE_SIM} AND DT_SIN_PRI IS NOT NULL
+        GROUP BY comorbidade, semana
+        ORDER BY comorbidade, semana
+    """).df()

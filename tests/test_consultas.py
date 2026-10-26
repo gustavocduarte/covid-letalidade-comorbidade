@@ -10,6 +10,7 @@ from consultas import (
     letalidade_por_estado_agregado,
     letalidade_por_estado_por_ano,
     serie_semanal_casos,
+    serie_semanal_por_comorbidade,
 )
 from transform import (
     agregar_estados_todos_anos,
@@ -18,6 +19,9 @@ from transform import (
     letalidade_por_comorbidade,
     letalidade_por_estado,
     serie_semanal_casos_covid,
+)
+from transform import (
+    serie_semanal_por_comorbidade as serie_semanal_por_comorbidade_pandas,
 )
 
 
@@ -117,3 +121,28 @@ def test_serie_semanal_casos_valores_calculados_a_mao(con):
     }
     assert dict(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["casos"], strict=True)) == esperado
     assert serie["casos"].sum() == 20  # 22 casos de COVID menos 2 sem data válida
+
+
+def test_serie_semanal_por_comorbidade_igual_ao_pandas(con, casos_pandas, assert_iguais):
+    esperado = (
+        pd.concat([serie_semanal_por_comorbidade_pandas(covid) for covid in casos_pandas.values()], ignore_index=True)
+        .groupby(["semana", "comorbidade"], as_index=False)["casos"].sum()
+        .sort_values(["comorbidade", "semana"]).reset_index(drop=True)
+    )
+
+    assert_iguais(serie_semanal_por_comorbidade(con), esperado)
+
+
+def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
+    serie = serie_semanal_por_comorbidade(con)
+
+    def da(comorbidade):
+        sub = serie[serie["comorbidade"] == comorbidade]
+        return dict(zip(sub["semana"].dt.strftime("%Y-%m-%d"), sub["casos"], strict=True))
+
+    assert da("DIABETES") == {"2020-03-02": 2, "2020-03-09": 2, "2020-03-16": 1, "2021-01-04": 3, "2021-01-11": 1}
+    assert da("OBESIDADE") == {"2020-03-09": 1, "2020-03-16": 1, "2021-01-04": 2}
+    assert da("CARDIOPATI") == {"2020-03-02": 1, "2020-03-09": 1}
+    assert da("SIND_DOWN") == {"2020-12-28": 2, "2021-01-04": 1}  # a semana da virada soma os dois anos
+    assert da("ASMA") == {}  # sem casos: nenhuma linha
+    assert len(serie) == 12
