@@ -6,6 +6,9 @@ RAIZ = Path(__file__).resolve().parent.parent
 PASTA_RAW = RAIZ / "data" / "raw"
 PROCESSED_DIR = RAIZ / "data" / "processed"
 PASTA_GEO = RAIZ / "data" / "geo"
+# Um Parquet por ano (ano=AAAA/casos.parquet), só com os casos de COVID e as colunas usadas.
+PASTA_DETALHADO = PROCESSED_DIR / "detalhado"
+NOME_PARQUET_ANO = "casos.parquet"
 CAMINHO_GEOJSON = PASTA_GEO / "brasil_estados.geojson"
 
 # URLs oficiais do banco de SRAG por ano, hospedadas pelo Ministério da Saúde (OpenDataSUS).
@@ -29,6 +32,8 @@ URL_MALHA = "https://servicodados.ibge.gov.br/api/v3/malhas/estados/{sigla}?form
 # a codificação e rejeita latin-1/windows-1252 nesses arquivos; o pandas é leniente, mas as
 # colunas que lemos são ASCII, então os valores não dependem disso.
 ENCODING_CSV = "utf-8"
+# Teto de memória do DuckDB na conversão (o excedente vai para disco temporário).
+DUCKDB_LIMITE_MEMORIA = "400MB"
 
 # Nomes dos arquivos gerados em data/processed/.
 NOME_CACHE_DETALHADO = "casos_covid_detalhado.csv"
