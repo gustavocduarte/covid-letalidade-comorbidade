@@ -32,6 +32,8 @@ de letalidade de COVID-19 por comorbidade).
 - Testes não acessam a rede nem gravam em `data/`; usar `tmp_path` e fixtures em `tests/fixtures/`.
 - Testes que dependem dos dados brutos (~4,8 GB em `data/raw/`) rodam só localmente e são
   pulados no CI e quando `data/raw/` não existe.
+- O teste golden roda só sob demanda (`pytest -m golden`): antes e depois de qualquer mudança
+  no pipeline, e não nas verificações de rotina.
 - Nunca mudar o valor esperado de um teste existente sem me perguntar antes; se uma mudança
   exigir isso, parar e explicar.
 - Testes de interface do dashboard selecionam botões e campos pelo rótulo, não pela posição.
