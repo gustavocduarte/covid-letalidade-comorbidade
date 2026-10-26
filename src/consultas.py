@@ -124,3 +124,18 @@ def letalidade_por_estado_por_ano(con: duckdb.DuckDBPyConnection) -> pd.DataFram
 def letalidade_por_estado_agregado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
     """Letalidade por UF somando todos os anos (soma óbitos e desfechos antes de dividir)."""
     return con.execute(_sql_letalidade_por_estado(por_ano=False)).df()
+
+
+def serie_semanal_casos(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Casos de COVID por semana de início dos sintomas (semana começa na segunda-feira).
+
+    Soma os anos direto, então os dois pedaços de uma semana na virada do ano já saem juntos.
+    Casos sem data válida ficam de fora.
+    """
+    return con.execute("""
+        SELECT date_trunc('week', DT_SIN_PRI) AS semana, count(*) AS casos
+        FROM casos
+        WHERE DT_SIN_PRI IS NOT NULL
+        GROUP BY semana
+        ORDER BY semana
+    """).df()

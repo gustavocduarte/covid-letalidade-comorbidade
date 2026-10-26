@@ -32,6 +32,11 @@ def assert_iguais():
 
     def comparar(obtido: pd.DataFrame, esperado: pd.DataFrame) -> None:
         assert list(obtido.columns) == list(esperado.columns)
+        # a resolução de tempo varia entre pandas e DuckDB (s, ms, us, ns): só o instante importa
+        obtido, esperado = obtido.copy(), esperado.copy()
+        for coluna in esperado.select_dtypes("datetime").columns:
+            obtido[coluna] = obtido[coluna].astype("datetime64[ns]")
+            esperado[coluna] = esperado[coluna].astype("datetime64[ns]")
         taxas = [c for c in esperado.columns if c.startswith("taxa_letalidade")]
         exatas = [c for c in esperado.columns if c not in taxas]
         assert_frame_equal(obtido[exatas], esperado[exatas], check_exact=True)

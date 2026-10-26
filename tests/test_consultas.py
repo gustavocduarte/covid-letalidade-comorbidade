@@ -9,6 +9,7 @@ from consultas import (
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
     letalidade_por_estado_por_ano,
+    serie_semanal_casos,
 )
 from transform import (
     agregar_estados_todos_anos,
@@ -16,6 +17,7 @@ from transform import (
     carregar_casos_covid,
     letalidade_por_comorbidade,
     letalidade_por_estado,
+    serie_semanal_casos_covid,
 )
 
 
@@ -92,3 +94,26 @@ def test_letalidade_por_estado_valores_calculados_a_mao(con):
     assert list(agregado["sigla"]) == list(esperado)
     for linha in agregado.itertuples():
         assert (linha.casos, linha.obitos, linha.desfecho_conhecido) == esperado[linha.sigla]
+
+
+def test_serie_semanal_casos_igual_ao_pandas(con, casos_pandas, assert_iguais):
+    # o pipeline soma os pedaços de cada semana que caem em dois arquivos anuais
+    esperado = (
+        pd.concat([serie_semanal_casos_covid(covid) for covid in casos_pandas.values()], ignore_index=True)
+        .groupby("semana", as_index=False)["casos"].sum()
+        .sort_values("semana").reset_index(drop=True)
+    )
+
+    assert_iguais(serie_semanal_casos(con), esperado)
+
+
+def test_serie_semanal_casos_valores_calculados_a_mao(con):
+    serie = serie_semanal_casos(con)
+
+    esperado = {
+        "2020-03-02": 2, "2020-03-09": 5, "2020-03-16": 4,
+        "2020-12-28": 2,  # 30/dez/2020 (arquivo de 2020) + 01/jan/2021 (arquivo de 2021)
+        "2021-01-04": 5, "2021-01-11": 2,
+    }
+    assert dict(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["casos"], strict=True)) == esperado
+    assert serie["casos"].sum() == 20  # 22 casos de COVID menos 2 sem data válida
