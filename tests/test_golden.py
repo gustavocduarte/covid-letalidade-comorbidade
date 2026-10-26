@@ -4,6 +4,7 @@ saídas com as versionadas em data/processed/.
 Precisa dos ~4,8 GB de data/raw/, então só roda localmente. Para pular: pytest -m "not golden".
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -14,12 +15,20 @@ import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
-from config import COMORBIDADES, DUCKDB_LIMITE_MEMORIA, NOME_CACHE_DETALHADO, NOME_PARQUET_ANO
+from config import (
+    COMORBIDADES,
+    DUCKDB_LIMITE_MEMORIA,
+    EVOLUCAO_CURA,
+    EVOLUCAO_OBITO,
+    NOME_CACHE_DETALHADO,
+    NOME_PARQUET_ANO,
+)
 from extract import URLS_SRAG
 
 RAIZ = Path(__file__).resolve().parent.parent
 RAW = RAIZ / "data" / "raw"
 PROCESSADOS = RAIZ / "data" / "processed"
+RESUMO = Path(__file__).resolve().parent / "golden" / "detalhado_resumo.json"
 
 # Gerados por pipeline.py; gerar_serie_estado.py roda em seguida e regrava o último a partir dos Parquets.
 SAIDAS = [
@@ -124,3 +133,39 @@ def test_parquets_iguais_ao_cache_csv_anterior(saidas_geradas):
             FROM c FULL JOIN p ON c.n = p.n
         """).fetchone()
         assert (linhas_parquet, divergentes) == (linhas_csv, 0), f"{ano}: parquet difere do cache CSV"
+
+
+def _resumo_por_ano(con: duckdb.DuckDBPyConnection, glob: str) -> dict:
+    """Por ano: linhas, óbitos, curas, casos por UF e contagem de valores de cada coluna ("(vazio)" = nulo)."""
+
+    def chave(valor):
+        return "(vazio)" if valor is None else str(valor)
+
+    def contar(coluna, ano):
+        linhas = con.execute(f"""SELECT {coluna}, count(*) FROM read_parquet('{glob}', hive_partitioning=true)
+                                 WHERE ano = {ano} GROUP BY 1 ORDER BY 1 NULLS LAST""").fetchall()
+        return {chave(valor): n for valor, n in linhas}
+
+    totais = con.execute(f"""
+        SELECT ano, count(*), count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_OBITO}),
+               count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_CURA})
+        FROM read_parquet('{glob}', hive_partitioning=true) GROUP BY ano ORDER BY ano
+    """).fetchall()
+    return {
+        str(ano): {
+            "linhas": linhas, "obitos": obitos, "curas": curas, "casos_por_uf": contar("SG_UF", ano),
+            "valores_por_coluna": {c: contar(c, ano) for c in ["DT_SIN_PRI", "EVOLUCAO", *COMORBIDADES]},
+        }
+        for ano, linhas, obitos, curas in totais
+    }
+
+
+def test_parquets_iguais_ao_resumo_versionado(saidas_geradas):
+    """Não depende do cache CSV: o resumo versionado foi gerado dele quando ele ainda existia."""
+    con = duckdb.connect()
+    con.execute(f"SET memory_limit = '{DUCKDB_LIMITE_MEMORIA}'")
+    glob = (saidas_geradas / "detalhado" / "ano=*" / NOME_PARQUET_ANO).as_posix()
+
+    esperado = json.loads(RESUMO.read_text(encoding="utf-8"))
+
+    assert _resumo_por_ano(con, glob) == esperado
