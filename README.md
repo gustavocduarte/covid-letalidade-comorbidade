@@ -55,7 +55,7 @@ Estas instruções assumem que você nunca viu este projeto antes e está começ
 
 ### 1. Pré-requisitos
 
-- Python 3.11 ou mais recente instalado ([python.org](https://www.python.org/downloads/)).
+- Python 3.12 ou mais recente instalado ([python.org](https://www.python.org/downloads/)).
 - Uns 6 GB de espaço livre em disco (os dados brutos baixados somam ~4,9 GB).
 
 ### 2. Baixar o projeto e entrar na pasta
@@ -126,18 +126,19 @@ Abra **http://localhost:8501** no navegador.
 
 ### Rodar os testes automatizados (opcional)
 
-O pytest não está em `requirements.txt` (só é necessário pra rodar os testes, não
-pro dashboard em si), então instale-o primeiro:
+`requirements.txt` traz só o que o dashboard precisa. Para rodar o pipeline e os testes,
+instale também as dependências do pipeline e as de desenvolvimento (pytest e ruff), que
+estão declaradas no `pyproject.toml`:
 
 ```bash
-pip install pytest
-```
-
-Depois, rode:
-
-```bash
+pip install -r requirements.txt -e ".[dev]"
 pytest
+ruff check .
 ```
+
+O teste de regressão "dourado" (`pytest -m golden`) roda o pipeline completo sobre os
+dados brutos de `data/raw/` (~4,8 GB, uns 3 minutos) e compara com os CSVs versionados.
+Ele fica fora da execução padrão e só roda sob demanda, localmente.
 
 ## Estrutura de pastas
 
@@ -157,9 +158,13 @@ covid-letalidade-comorbidade/
 │   ├── gerar_serie_estado.py   # Gera a série semanal de casos por estado
 │   └── dashboard.py            # O dashboard Streamlit em si
 ├── tests/
-│   └── test_transform.py       # Testes automatizados (pytest) da lógica principal
-├── conftest.py                 # Configuração do pytest (deixa src/ importável nos testes)
-├── requirements.txt
+│   ├── test_transform.py       # Testes da lógica de transformação
+│   ├── test_pipeline_e2e.py    # Pipeline de ponta a ponta sobre uma amostra sintética
+│   ├── test_golden.py          # Regressão: pipeline completo vs. CSVs versionados (só local)
+│   └── fixtures/               # Amostra sintética do SIVEP-Gripe usada nos testes
+├── pyproject.toml              # Dependências por grupo, Python mínimo e config do pytest/Ruff
+├── requirements.txt            # Dependências do dashboard, com versões fixas (Streamlit Cloud)
+├── CLAUDE.md                   # Regras de trabalho do projeto
 └── README.md
 ```
 
@@ -171,6 +176,6 @@ covid-letalidade-comorbidade/
   ambiente específico.
 - O campo de tabagismo (`TABAG`) existe no formulário oficial do SIVEP-Gripe, mas não é
   preenchido na prática pelos postos de saúde — por isso não entra na análise.
-- Ferramentas de desenvolvimento (Ruff para lint, pytest para testes) não estão em
-  `requirements.txt` por não serem necessárias pra rodar o dashboard em si; instale-as
-  separadamente (`pip install ruff pytest`) se for contribuir com o projeto.
+- Ferramentas de desenvolvimento (Ruff para lint, pytest para testes) ficam no extra `dev`
+  do `pyproject.toml`, fora do `requirements.txt`, que o Streamlit Cloud lê para instalar
+  só o dashboard: `pip install -r requirements.txt -e ".[dev]"`.

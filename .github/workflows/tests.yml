@@ -9,16 +9,22 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.14"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            pyproject.toml
       - name: Instalar dependências
-        run: |
-          pip install -r requirements.txt
-          pip install pytest ruff
-      - name: Rodar testes (pytest)
-        run: pytest
+        run: pip install -r requirements.txt -e ".[dev]"
       - name: Rodar lint (ruff)
         run: ruff check .
+      - name: Rodar testes (pytest, sem o golden)
+        run: pytest

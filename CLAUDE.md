@@ -54,8 +54,9 @@ de letalidade de COVID-19 por comorbidade).
 
 ## Comandos
 ```bash
-pip install -r requirements.txt   # dependências
-pytest                            # testes
+pip install -r requirements.txt -e ".[dev]"   # dependências (dashboard + pipeline + dev)
+pytest                            # testes (sem o golden)
+pytest -m golden                  # regressão do pipeline completo (~3 min, precisa de data/raw)
 ruff check .                      # lint
 python src/pipeline.py            # ETL completo (baixa ~4,9 GB na primeira vez)
 streamlit run src/dashboard.py    # dashboard em http://localhost:8501

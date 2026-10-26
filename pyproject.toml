@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "covid-letalidade-comorbidade"
+version = "0.1.0"
+description = "Pipeline de ETL e dashboard da letalidade de COVID-19 por comorbidade no Brasil (SIVEP-Gripe)"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+# numpy 2.5 (puxado pelo pandas 3) exige 3.12+; é a versão do CI e do Streamlit Cloud.
+requires-python = ">=3.12"
+# Pipeline (extração, transformação, carga)
+dependencies = [
+    "pandas>=3.0.5,<4",
+    "requests>=2.34,<3",
+]
+
+[project.optional-dependencies]
+dashboard = [
+    "altair>=6.2,<7",
+    "plotly>=7,<8",
+    "streamlit>=1.63,<2",
+]
+dev = [
+    "pytest>=9.1,<10",
+    "ruff>=0.16.7,<0.17",
+]
+
+# O projeto é um conjunto de scripts em src/, não um pacote instalável: o pyproject só
+# declara dependências e configuração de ferramentas.
+[tool.setuptools]
+py-modules = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+# O golden (~3 min, precisa de data/raw) só roda sob demanda: pytest -m golden
+addopts = '-m "not golden"'
+markers = [
+    "golden: roda o pipeline completo sobre data/raw (~4,8 GB); só sob demanda, pulado no CI e sem os CSVs brutos",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120

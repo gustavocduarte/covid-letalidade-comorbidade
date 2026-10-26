@@ -26,3 +26,6 @@ Thumbs.db
 # Cache intermediário grande (~140 MB), regenerável por src/pipeline.py
 data/processed/casos_covid_detalhado.csv
 data/processed/*_detalhado.csv
+
+# Metadados gerados por pip install -e
+*.egg-info/
