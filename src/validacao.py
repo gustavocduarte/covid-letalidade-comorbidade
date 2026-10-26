@@ -7,6 +7,7 @@ Cada verificação devolve achados de nível "erro" (o pipeline não deve gravar
 from dataclasses import dataclass
 
 import duckdb
+import pandas as pd
 
 from config import (
     COMORBIDADE_DOMINIO,
@@ -105,4 +106,82 @@ def validar_casos(estatisticas: dict[int, dict[str, int]]) -> list[Achado]:
                                   f"({e['sem_desfecho'] / linhas:.1%}) sem desfecho conhecido, acima de "
                                   f"{LIMITE_SEM_DESFECHO:.0%}. Em um ano parcial e recente, muitos casos ainda estão "
                                   "em andamento; nesse caso o aviso pode ser esperado."))
+    return achados
+
+
+def _contagens_inconsistentes(df: pd.DataFrame, sufixos: list[str]) -> int:
+    """Linhas em que óbitos > desfechos conhecidos ou desfechos conhecidos > casos."""
+    ruins = pd.Series(False, index=df.index)
+    for s in sufixos:
+        casos, obitos, desfecho = df[f"casos{s}"], df[f"obitos{s}"], df[f"desfecho_conhecido{s}"]
+        ruins |= (obitos > desfecho) | (desfecho > casos)
+    return int(ruins.sum())
+
+
+def validar_saidas(
+    estatisticas: dict[int, dict[str, int]],
+    *,
+    por_ano: pd.DataFrame,
+    agregado: pd.DataFrame,
+    estado: pd.DataFrame,
+    serie_semanal: pd.DataFrame,
+    serie_comorbidade: pd.DataFrame,
+    serie_estado: pd.DataFrame,
+) -> list[Achado]:
+    """Invariantes entre as tabelas de saída e as contagens dos Parquets; qualquer violação é erro."""
+    achados = []
+
+    def erro(codigo: str, quantidade: int, mensagem: str, ano: int | None = None) -> None:
+        achados.append(Achado(ERRO, codigo, ano, quantidade, mensagem))
+
+    total = {campo: sum(e[campo] for e in estatisticas.values()) for campo in CAMPOS_ESTATISTICA}
+
+    for ano, e in estatisticas.items():
+        linhas_ano = por_ano[por_ano["ano"] == ano]
+        if sorted(linhas_ano["comorbidade"]) != sorted(COMORBIDADES):
+            erro("COMORBIDADES_INCOMPLETAS", len(linhas_ano),
+                 f"{ano}: a tabela por comorbidade deveria ter as {len(COMORBIDADES)} comorbidades uma vez cada.", ano)
+        excesso = int(((linhas_ano["casos_com"] + linhas_ano["casos_sem"]) > e["linhas"]).sum())
+        if excesso:
+            erro("CASOS_MAIORES_QUE_LINHAS", excesso,
+                 f"{ano}: casos com + sem comorbidade passam do total de casos.", ano)
+
+    tabelas = (("por ano", por_ano, ["_com", "_sem"]), ("agregada", agregado, ["_com", "_sem"]),
+               ("por estado", estado, [""]))
+    for nome, df, sufixos in tabelas:
+        ruins = _contagens_inconsistentes(df, sufixos)
+        if ruins:
+            erro("CONTAGENS_INCONSISTENTES", ruins, f"Tabela {nome}: {ruins} linhas com óbitos > desfechos > casos.")
+        taxas = df[[c for c in df.columns if c.startswith("taxa_letalidade")]]
+        fora = int(((taxas < 0) | (taxas > 1)).sum().sum())
+        if fora:
+            erro("TAXA_FORA_DO_INTERVALO", fora, f"Tabela {nome}: {fora} taxas fora de [0, 1].")
+
+    contagens = [f"{n}{s}" for s in ("_com", "_sem") for n in ("casos", "obitos", "desfecho_conhecido")]
+    soma = por_ano.groupby("comorbidade")[contagens].sum()
+    comparado = agregado.set_index("comorbidade")[contagens].reindex(soma.index)
+    divergentes = int((comparado != soma).any(axis=1).sum())
+    if divergentes:
+        erro("AGREGADO_DIFERE_DA_SOMA", divergentes,
+             f"{divergentes} comorbidades com o agregado diferente da soma dos anos.")
+
+    somas = {
+        "ESTADO_DIFERE_DOS_CASOS": (
+            "casos por estado", int(estado["casos"].sum()), total["linhas"] - total["sem_uf"]),
+        "SERIE_SEMANAL_DIFERE_DOS_CASOS": (
+            "série semanal", int(serie_semanal["casos"].sum()), total["linhas"] - total["sem_data"]),
+        "SERIE_ESTADO_DIFERE_DOS_CASOS": (
+            "série semanal por estado", int(serie_estado["casos"].sum()),
+            total["linhas"] - total["fora_da_serie_estado"]),
+    }
+    for codigo, (nome, obtido, esperado) in somas.items():
+        if obtido != esperado:
+            erro(codigo, abs(obtido - esperado), f"Soma de {nome} = {obtido}, mas os Parquets indicam {esperado}.")
+
+    por_comorbidade = serie_comorbidade.groupby("comorbidade")["casos"].sum()
+    maximo = agregado.set_index("comorbidade")["casos_com"].reindex(por_comorbidade.index)
+    excesso = int((por_comorbidade > maximo).sum())
+    if excesso:
+        erro("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", excesso,
+             f"{excesso} comorbidades com mais casos na série que na tabela.")
     return achados

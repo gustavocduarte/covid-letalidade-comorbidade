@@ -3,9 +3,17 @@
 import pytest
 
 import validacao
-from consultas import abrir_casos
+from consultas import (
+    abrir_casos,
+    letalidade_por_comorbidade_agregado,
+    letalidade_por_comorbidade_por_ano,
+    letalidade_por_estado_agregado,
+    serie_semanal_casos,
+    serie_semanal_por_comorbidade,
+    serie_semanal_por_estado,
+)
 from conversao import csv_para_parquet
-from validacao import AVISO, ERRO, estatisticas_por_ano, validar_casos
+from validacao import AVISO, ERRO, estatisticas_por_ano, validar_casos, validar_saidas
 
 CAMPOS_ZERADOS = {
     "linhas": 0, "sem_uf": 0, "uf_invalida": 0, "sem_data": 0, "data_fora_janela": 0, "sem_desfecho": 0,
@@ -109,3 +117,56 @@ def test_limites_vem_do_modulo_de_validacao(parquet_de_casos, monkeypatch):
 
     monkeypatch.setattr(validacao, "LIMITE_DATA_INVALIDA", 0.0)
     assert [(a.nivel, a.codigo) for a in validar_casos(e)] == [(ERRO, "DATA_INVALIDA")]
+
+
+@pytest.fixture(scope="module")
+def saidas_validas(pasta_parquets):
+    with abrir_casos(pasta_parquets, anos=[2020, 2021]) as con:
+        return {
+            "estatisticas": estatisticas_por_ano(con),
+            "tabelas": {
+                "por_ano": letalidade_por_comorbidade_por_ano(con),
+                "agregado": letalidade_por_comorbidade_agregado(con),
+                "estado": letalidade_por_estado_agregado(con),
+                "serie_semanal": serie_semanal_casos(con),
+                "serie_comorbidade": serie_semanal_por_comorbidade(con),
+                "serie_estado": serie_semanal_por_estado(con),
+            },
+        }
+
+
+def _validar(saidas, **alteradas):
+    tabelas = {nome: df.copy() for nome, df in saidas["tabelas"].items()} | alteradas
+    return validar_saidas(saidas["estatisticas"], **tabelas)
+
+
+def test_saidas_corretas_nao_geram_achados(saidas_validas):
+    assert _validar(saidas_validas) == []
+
+
+def _com(df, mascara, coluna, valor):
+    df = df.copy()
+    df.loc[mascara(df), coluna] = valor
+    return df
+
+
+@pytest.mark.parametrize(("codigo", "tabela", "alteracao"), [
+    ("COMORBIDADES_INCOMPLETAS", "por_ano", lambda df: df[~((df["ano"] == 2020) & (df["comorbidade"] == "ASMA"))]),
+    ("CONTAGENS_INCONSISTENTES", "por_ano",
+     lambda df: _com(df, lambda d: (d["ano"] == 2020) & (d["comorbidade"] == "DIABETES"), "obitos_com", 99)),
+    ("CASOS_MAIORES_QUE_LINHAS", "por_ano",
+     lambda df: _com(df, lambda d: (d["ano"] == 2021) & (d["comorbidade"] == "DIABETES"), "casos_com", 99)),
+    ("TAXA_FORA_DO_INTERVALO", "agregado",
+     lambda df: _com(df, lambda d: d["comorbidade"] == "DIABETES", "taxa_letalidade_com", 1.5)),
+    ("AGREGADO_DIFERE_DA_SOMA", "agregado",
+     lambda df: _com(df, lambda d: d["comorbidade"] == "DIABETES", "casos_sem", 100)),
+    ("ESTADO_DIFERE_DOS_CASOS", "estado", lambda df: df.iloc[1:]),
+    ("SERIE_SEMANAL_DIFERE_DOS_CASOS", "serie_semanal", lambda df: _com(df, lambda d: d.index == 0, "casos", 50)),
+    ("SERIE_ESTADO_DIFERE_DOS_CASOS", "serie_estado", lambda df: df.iloc[:-1]),
+    ("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", "serie_comorbidade", lambda df: _com(df, lambda d: d.index >= 0, "casos", 1000)),
+])
+def test_cada_invariante_violado_vira_erro(saidas_validas, codigo, tabela, alteracao):
+    achados = _validar(saidas_validas, **{tabela: alteracao(saidas_validas["tabelas"][tabela])})
+
+    assert codigo in {a.codigo for a in achados}
+    assert {a.nivel for a in achados} == {ERRO}
