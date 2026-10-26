@@ -29,6 +29,7 @@ Comparação da curva de casos entre estados ao longo do tempo, normalizada pelo
 - Calcula a mesma taxa por estado e ao longo do tempo (semanal).
 - Converte cada ano em Parquet (DuckDB) e gera as tabelas com consultas SQL sobre eles, com
   memória limitada a 400 MB.
+- Valida os dados antes de gravar qualquer saída e publica um relatório de qualidade.
 - Apresenta tudo num dashboard interativo (Streamlit): gráficos de barras, linha do
   tempo, mapa coroplético do Brasil por estado, e uma tabela explorável por comorbidade.
 
@@ -165,7 +166,8 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
    usadas, com tipos (datas como DATE, códigos como inteiros), e grava um Parquet zstd.
 2. `consultas.py` calcula letalidade por comorbidade e por estado e as séries semanais
    direto nos Parquets (uma view `casos` sobre `ano=*/`).
-3. `pipeline.py` orquestra os dois passos e grava os CSVs com `load.py`.
+3. `validacao.py` confere os dados e as tabelas calculadas (veja "Validação dos dados" abaixo).
+4. `pipeline.py` orquestra os passos e, se a validação passar, grava os CSVs com `load.py`.
 
 **Memória e tamanho.** A conversão e as consultas rodam com o DuckDB limitado a 400 MB
 (o excedente iria para disco temporário). Medido com o pandas como referência:
@@ -173,11 +175,32 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
 | | pandas | DuckDB (limite de 400 MB) |
 |---|---|---|
 | Ano 2021 (1,8 GB de CSV, 1,2 milhão de casos): pico de memória / tempo | 0,74 GiB / 24 s | 0,21 GiB / 12 s |
-| Pipeline completo (7 anos): pico de memória / tempo | 0,74 GiB / 71 s | 0,19 GiB / 43 s |
+| Pipeline completo (7 anos, com a validação no caso do DuckDB): pico de memória / tempo | 0,74 GiB / 71 s | 0,20 GiB / 41 s |
 | Casos de COVID de 2021 em disco | 71,1 MiB (CSV) | 4,3 a 5,0 MiB (Parquet zstd) |
 
 Os Parquets dos 7 anos somam 8,4 MiB, contra 141 MB do cache em CSV que o pipeline gerava
 antes.
+
+## Validação dos dados
+
+Depois de converter os anos e calcular as tabelas, e **antes de gravar qualquer CSV**, o
+pipeline roda verificações em SQL sobre os Parquets (`validacao.py`). Cada achado é um **erro**
+ou um **aviso**:
+
+| Nível | O que dispara |
+|---|---|
+| **Erro** | `EVOLUCAO` fora de {1, 2, 3, 9} ou comorbidade fora de {1, 2, 9} (vazio vale); mais de 1% dos casos de um ano sem data de início dos sintomas ou com data fora do ano (± 7 dias, já que os arquivos anuais são cortados por semana epidemiológica); e qualquer violação das conferências entre as tabelas e os Parquets: 11 comorbidades por ano, óbitos ≤ desfechos conhecidos ≤ casos, taxas entre 0 e 1, agregado igual à soma dos anos, e soma dos casos por estado e das séries semanais igual ao total de casos |
+| **Aviso** | casos sem UF ou com UF fora das 27 siglas (ficam fora das tabelas por estado, mas são contados); até 1% de datas inválidas; mais de 20% de casos sem desfecho conhecido em um ano (num ano parcial e recente, muitos casos ainda estão em andamento, então esse aviso pode ser esperado); ano sem nenhum caso de COVID |
+
+- **Com erro**, o pipeline grava o relatório, não grava nenhum CSV de saída (os CSVs anteriores,
+  que o dashboard usa, ficam como estavam) e termina com código de saída 1.
+- **`data/processed/relatorio_qualidade.json`** é gravado em todos os casos e versionado. Traz,
+  por ano e no total, as contagens de cada problema, a lista de achados e `"aprovado"`
+  (verdadeiro quando não há erro). Não tem data nem hora, então a mesma entrada gera sempre o
+  mesmo arquivo, e o teste golden o compara com o versionado.
+- Com os dados reais, o relatório sai aprovado, com 333 casos sem UF (de 2.291.279) e nenhum
+  outro problema. O dashboard lê o relatório e, só quando ele está aprovado e há casos sem UF,
+  mostra "N casos sem estado informado não entram no mapa".
 
 ## Estrutura de pastas
 
@@ -186,7 +209,8 @@ covid-letalidade-comorbidade/
 ├── data/
 │   ├── raw/          # CSVs brutos do SIVEP-Gripe, um por ano (gerado pelo passo 5)
 │   ├── processed/    # Dados já tratados, usados pelo dashboard (gerado pelos passos 5-7)
-│   │   └── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet), fora do git
+│   │   ├── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet), fora do git
+│   │   └── relatorio_qualidade.json  # Relatório da validação (versionado)
 │   └── geo/          # Contorno geográfico dos estados em GeoJSON (gerado pelo passo 6)
 ├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF) e texto extraído
 ├── src/
@@ -196,6 +220,8 @@ covid-letalidade-comorbidade/
 │   ├── transform.py            # Versão pandas das mesmas contas, mantida como referência dos testes
 │   ├── load.py                 # L do ETL: salva os resultados em data/processed/
 │   ├── config.py               # Caminhos, URLs, colunas e códigos de domínio
+│   ├── validacao.py            # Verificações de qualidade (SQL sobre os Parquets) e relatório
+│   ├── qualidade.py            # Lê o relatório para o aviso do dashboard
 │   ├── pipeline.py             # Orquestra E-T-L pros 7 anos, um de cada vez
 │   ├── baixar_geojson.py       # Baixa e verifica o contorno dos 27 estados (API do IBGE)
 │   ├── gerar_serie_estado.py   # Gera a série semanal de casos por estado
@@ -205,6 +231,8 @@ covid-letalidade-comorbidade/
 │   ├── test_conversao.py       # CSV bruto -> Parquet sobre a amostra sintética
 │   ├── test_consultas.py       # Consultas SQL contra o pandas e contra valores calculados à mão
 │   ├── test_travas.py          # As travas de teste: sem rede e sem escrita em data/
+│   ├── test_validacao.py       # Verificações, invariantes e relatório de qualidade
+│   ├── test_qualidade.py       # Aviso de casos sem estado (lógica e dashboard renderizado)
 │   ├── test_pipeline_e2e.py    # Pipeline de ponta a ponta sobre uma amostra sintética
 │   ├── test_golden.py          # Regressão: pipeline completo vs. CSVs versionados (só local)
 │   ├── golden/                 # Resumo versionado dos Parquets (referência do teste golden)
