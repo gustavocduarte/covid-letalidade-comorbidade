@@ -4,48 +4,28 @@ from pathlib import Path
 
 import pandas as pd
 
-# As 11 colunas de comorbidade do SIVEP-Gripe (confirmadas no dicionário de dados oficial).
-# TABAG (Tabagismo) existe no formulário oficial, mas não entra aqui: checamos e o campo
-# vem 100% vazio em todos os 7 anos (2020-2026) — o Ministério da Saúde não o preenche
-# na prática, então não haveria dado real pra comparar.
-COMORBIDADES = [
-    "CARDIOPATI", "HEMATOLOGI", "SIND_DOWN", "HEPATICA", "ASMA",
-    "DIABETES", "NEUROLOGIC", "PNEUMOPATI", "IMUNODEPRE", "RENAL", "OBESIDADE",
-]
-
-# Só carregamos do CSV gigante as colunas que realmente vamos usar.
-# DT_SIN_PRI (data de início dos sintomas) alimenta o gráfico de linha do tempo;
-# SG_UF (UF de residência do paciente) alimenta o mapa por estado.
-COLUNAS_NECESSARIAS = ["CLASSI_FIN", "EVOLUCAO", "DT_SIN_PRI", "SG_UF"] + COMORBIDADES
-
-# Nome por extenso de cada comorbidade, conforme o dicionário de dados oficial
-# (docs/dicionario-de-dados-2019-a-2025.pdf), para uso em exibição/relatórios.
-NOMES_COMORBIDADES = {
-    "CARDIOPATI": "Doença Cardiovascular Crônica",
-    "HEMATOLOGI": "Doença Hematológica Crônica",
-    "SIND_DOWN": "Síndrome de Down",
-    "HEPATICA": "Doença Hepática Crônica",
-    "ASMA": "Asma",
-    "DIABETES": "Diabetes Mellitus",
-    "NEUROLOGIC": "Doença Neurológica Crônica",
-    "PNEUMOPATI": "Outra Pneumopatia Crônica",
-    "IMUNODEPRE": "Imunodeficiência ou Imunodepressão",
-    "RENAL": "Doença Renal Crônica",
-    "OBESIDADE": "Obesidade",
-}
+from config import (
+    CLASSI_FIN_COVID,
+    COLUNAS_NECESSARIAS,
+    COMORBIDADE_NAO,
+    COMORBIDADE_SIM,
+    COMORBIDADES,
+    EVOLUCAO_CURA,
+    EVOLUCAO_OBITO,
+)
 
 
 def carregar_casos_covid(caminho_csv: Path) -> pd.DataFrame:
     """Lê o CSV bruto de um ano usando só as colunas necessárias e filtra os casos de COVID (CLASSI_FIN == 5)."""
     df = pd.read_csv(caminho_csv, sep=";", encoding="latin1", usecols=COLUNAS_NECESSARIAS)
-    covid = df[df["CLASSI_FIN"] == 5].copy()
+    covid = df[df["CLASSI_FIN"] == CLASSI_FIN_COVID].copy()
     return covid
 
 
 def contar_desfechos(df: pd.DataFrame) -> tuple[int, int]:
     """Conta óbitos e curas (os dois únicos desfechos "conhecidos") num grupo de casos."""
-    obitos = int((df["EVOLUCAO"] == 2).sum())
-    curas = int((df["EVOLUCAO"] == 1).sum())
+    obitos = int((df["EVOLUCAO"] == EVOLUCAO_OBITO).sum())
+    curas = int((df["EVOLUCAO"] == EVOLUCAO_CURA).sum())
     return obitos, curas
 
 
@@ -59,8 +39,8 @@ def letalidade_por_comorbidade(covid: pd.DataFrame) -> pd.DataFrame:
     """
     linhas = []
     for comorbidade in COMORBIDADES:
-        com = covid[covid[comorbidade] == 1]
-        sem = covid[covid[comorbidade] == 2]
+        com = covid[covid[comorbidade] == COMORBIDADE_SIM]
+        sem = covid[covid[comorbidade] == COMORBIDADE_NAO]
 
         obitos_com, curas_com = contar_desfechos(com)
         obitos_sem, curas_sem = contar_desfechos(sem)
@@ -117,7 +97,7 @@ def serie_semanal_por_comorbidade(covid: pd.DataFrame) -> pd.DataFrame:
 
     blocos = []
     for comorbidade in COMORBIDADES:
-        tem_comorbidade = (covid[comorbidade] == 1) & semana.notna()
+        tem_comorbidade = (covid[comorbidade] == COMORBIDADE_SIM) & semana.notna()
         contagem = semana[tem_comorbidade].value_counts().sort_index()
         bloco = contagem.rename_axis("semana").reset_index(name="casos")
         bloco["comorbidade"] = comorbidade

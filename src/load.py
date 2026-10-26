@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-PROCESSED_DIR = Path(__file__).resolve().parent.parent / "data" / "processed"
+from config import PROCESSED_DIR
 
 
 def salvar_csv(df: pd.DataFrame, nome_arquivo: str) -> Path:

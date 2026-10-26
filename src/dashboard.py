@@ -1,7 +1,6 @@
 """Dashboard: visualiza a taxa de letalidade de COVID-19 por comorbidade."""
 
 import json
-from pathlib import Path
 
 import altair as alt
 import pandas as pd
@@ -9,18 +8,22 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from transform import NOMES_COMORBIDADES
+from config import (
+    CAMINHO_GEOJSON,
+    NOME_AGREGADO,
+    NOME_ESTADO,
+    NOME_SEMANAL,
+    NOME_SEMANAL_COMORBIDADE,
+    NOME_SEMANAL_ESTADO,
+    NOMES_COMORBIDADES,
+    PROCESSED_DIR,
+)
 
-CAMINHO_DADOS = Path(__file__).resolve().parent.parent / "data" / "processed" / "letalidade_por_comorbidade_agregado.csv"
-CAMINHO_SEMANAL = Path(__file__).resolve().parent.parent / "data" / "processed" / "casos_covid_por_semana.csv"
-CAMINHO_SEMANAL_COMORBIDADE = (
-    Path(__file__).resolve().parent.parent / "data" / "processed" / "casos_covid_semanal_por_comorbidade.csv"
-)
-CAMINHO_ESTADO = Path(__file__).resolve().parent.parent / "data" / "processed" / "letalidade_por_estado_agregado.csv"
-CAMINHO_SEMANAL_ESTADO = (
-    Path(__file__).resolve().parent.parent / "data" / "processed" / "casos_covid_por_semana_estado.csv"
-)
-CAMINHO_GEOJSON = Path(__file__).resolve().parent.parent / "data" / "geo" / "brasil_estados.geojson"
+CAMINHO_DADOS = PROCESSED_DIR / NOME_AGREGADO
+CAMINHO_SEMANAL = PROCESSED_DIR / NOME_SEMANAL
+CAMINHO_SEMANAL_COMORBIDADE = PROCESSED_DIR / NOME_SEMANAL_COMORBIDADE
+CAMINHO_ESTADO = PROCESSED_DIR / NOME_ESTADO
+CAMINHO_SEMANAL_ESTADO = PROCESSED_DIR / NOME_SEMANAL_ESTADO
 
 # Data de início da vacinação contra COVID-19 no Brasil — usada só como referência
 # temporal no gráfico de linha do tempo, sem implicar relação de causa e efeito.

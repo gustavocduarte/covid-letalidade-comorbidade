@@ -9,7 +9,17 @@ from datetime import UTC, datetime
 
 import pandas as pd
 
-from extract import PASTA_RAW, URLS_SRAG, baixar_arquivo
+from config import (
+    NOME_AGREGADO,
+    NOME_CACHE_DETALHADO,
+    NOME_ESTADO,
+    NOME_SEMANAL,
+    NOME_SEMANAL_COMORBIDADE,
+    NOME_TODOS_ANOS,
+    PASTA_RAW,
+    URLS_SRAG,
+)
+from extract import baixar_arquivo
 from load import anexar_csv, salvar_csv
 from transform import (
     agregar_estados_todos_anos,
@@ -20,8 +30,6 @@ from transform import (
     serie_semanal_casos_covid,
     serie_semanal_por_comorbidade,
 )
-
-NOME_CACHE_DETALHADO = "casos_covid_detalhado.csv"
 
 # O ano corrente ainda está em andamento (banco "vivo", atualizado toda semana),
 # então seus dados são parciais e não devem ser comparados como se fosse um ano cheio.
@@ -88,7 +96,7 @@ def executar_pipeline() -> None:
                       "obitos_sem", "desfecho_conhecido_sem", "taxa_letalidade_sem"]
     consolidado = consolidado[colunas_ordem]
 
-    caminho = salvar_csv(consolidado, "letalidade_por_comorbidade_todos_anos.csv")
+    caminho = salvar_csv(consolidado, NOME_TODOS_ANOS)
     print(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
     print(f"Total de linhas: {len(consolidado)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
 
@@ -96,7 +104,7 @@ def executar_pipeline() -> None:
     # o ano corrente parcial) numa única taxa por comorbidade. É o que o dashboard usa hoje,
     # antes de existir o filtro de ano.
     agregado = agregar_todos_anos(tabelas)
-    caminho_agregado = salvar_csv(agregado, "letalidade_por_comorbidade_agregado.csv")
+    caminho_agregado = salvar_csv(agregado, NOME_AGREGADO)
     print(f"Agregado (todos os anos somados) salvo em: {caminho_agregado}")
 
     # Semanas na virada do ano podem ter casos espalhados entre dois arquivos anuais
@@ -110,7 +118,7 @@ def executar_pipeline() -> None:
         .sort_values("semana")
         .reset_index(drop=True)
     )
-    caminho_semanal = salvar_csv(serie_semanal, "casos_covid_por_semana.csv")
+    caminho_semanal = salvar_csv(serie_semanal, NOME_SEMANAL)
     print(f"Série semanal ({len(serie_semanal)} semanas) salva em: {caminho_semanal}")
 
     # Mesmo raciocínio de juntar semanas na virada do ano, mas agora agrupando também
@@ -122,14 +130,14 @@ def executar_pipeline() -> None:
         .sort_values(["comorbidade", "semana"])
         .reset_index(drop=True)
     )
-    caminho_semanal_comorbidade = salvar_csv(serie_semanal_comorbidade, "casos_covid_semanal_por_comorbidade.csv")
+    caminho_semanal_comorbidade = salvar_csv(serie_semanal_comorbidade, NOME_SEMANAL_COMORBIDADE)
     print(f"Série semanal por comorbidade ({len(serie_semanal_comorbidade)} linhas) salva em: {caminho_semanal_comorbidade}")
 
     print(f"\nCache de casos detalhados (uso futuro, sem precisar rebaixar) em: "
           f"data/processed/{NOME_CACHE_DETALHADO}")
 
     agregado_estado = agregar_estados_todos_anos(tabelas_estado)
-    caminho_estado = salvar_csv(agregado_estado, "letalidade_por_estado_agregado.csv")
+    caminho_estado = salvar_csv(agregado_estado, NOME_ESTADO)
     print(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: {caminho_estado}")
 
 

@@ -3,15 +3,10 @@ e monta um único GeoJSON local, conferindo a sigla de cada estado contra a list
 oficial do IBGE antes de salvar (evita erro de digitação/troca acidental)."""
 
 import json
-from pathlib import Path
 
 import requests
 
-PASTA_GEO = Path(__file__).resolve().parent.parent / "data" / "geo"
-CAMINHO_SAIDA = PASTA_GEO / "brasil_estados.geojson"
-
-URL_LOCALIDADES = "https://servicodados.ibge.gov.br/api/v1/localidades/estados"
-URL_MALHA = "https://servicodados.ibge.gov.br/api/v3/malhas/estados/{sigla}?formato=application/vnd.geo+json"
+from config import CAMINHO_GEOJSON, PASTA_GEO, URL_LOCALIDADES, URL_MALHA
 
 
 def obter_estados_oficiais() -> dict[str, dict]:
@@ -63,6 +58,6 @@ if __name__ == "__main__":
     geojson_brasil = montar_geojson_brasil()
 
     PASTA_GEO.mkdir(parents=True, exist_ok=True)
-    with open(CAMINHO_SAIDA, "w", encoding="utf-8") as arquivo:
+    with open(CAMINHO_GEOJSON, "w", encoding="utf-8") as arquivo:
         json.dump(geojson_brasil, arquivo, ensure_ascii=False)
-    print(f"Salvo em: {CAMINHO_SAIDA}")
+    print(f"Salvo em: {CAMINHO_GEOJSON}")

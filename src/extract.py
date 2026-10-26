@@ -4,21 +4,7 @@ from pathlib import Path
 
 import requests
 
-# URLs oficiais do banco de SRAG por ano, hospedadas pelo Ministério da Saúde (OpenDataSUS).
-# Conferidas em 2026-09-11 (a URL de cada ano muda de tempos em tempos, porque inclui a
-# data da última atualização do "banco vivo" daquele ano).
-URLS_SRAG = {
-    2020: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2020/INFLUD20-23-03-2026.csv",
-    2021: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2021/INFLUD21-23-03-2026.csv",
-    2022: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2022/INFLUD22-23-03-2026.csv",
-    2023: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2023/INFLUD23-23-03-2026.csv",
-    2024: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2024/INFLUD24-23-03-2026.csv",
-    2025: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2025/INFLUD25-24-08-2026.csv",
-    2026: "https://s3.sa-east-1.amazonaws.com/ckan.saude.gov.br/SRAG/2026/INFLUD26-24-08-2026.csv",
-}
-
-# Pasta onde os dados brutos (sem nenhuma alteração) devem ficar.
-PASTA_RAW = Path(__file__).resolve().parent.parent / "data" / "raw"
+from config import PASTA_RAW, URLS_SRAG
 
 
 def baixar_arquivo(url: str, pasta_destino: Path) -> Path:

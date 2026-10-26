@@ -13,6 +13,7 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12"
 # Pipeline (extração, transformação, carga)
 dependencies = [
+    "duckdb>=2,<3",
     "pandas>=3.0.5,<4",
     "requests>=2.34,<3",
 ]
