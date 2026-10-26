@@ -1,5 +1,7 @@
 """Agregações em SQL x versão pandas, sobre a amostra sintética (mesmos números e mesma ordem)."""
 
+import shutil
+
 import pandas as pd
 import pytest
 
@@ -197,3 +199,21 @@ def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero_como_o_pandas(tmp_path, c
     assert len(do_ano_vazio) == 11
     assert (do_ano_vazio.filter(like="casos").sum().sum(), do_ano_vazio.filter(like="obitos").sum().sum()) == (0, 0)
     assert do_ano_vazio["taxa_letalidade_com"].isna().all()
+
+
+def test_ano_fora_da_lista_nao_entra_nas_consultas(tmp_path, pasta_parquets, con):
+    pasta = tmp_path / "detalhado"
+    shutil.copytree(pasta_parquets, pasta)
+    shutil.copytree(pasta / "ano=2021", pasta / "ano=1999")  # resto de uma execução antiga
+
+    with abrir_casos(pasta, anos=[2020, 2021]) as conexao:
+        assert conexao.execute("SELECT DISTINCT ano FROM casos ORDER BY ano").fetchall() == [(2020,), (2021,)]
+        assert conexao.execute("SELECT ano FROM anos ORDER BY ano").fetchall() == [(2020,), (2021,)]
+        filtrado = letalidade_por_comorbidade_por_ano(conexao)
+        semanal = serie_semanal_casos(conexao)
+
+    assert set(filtrado["ano"]) == {2020, 2021}
+    assert filtrado.equals(letalidade_por_comorbidade_por_ano(con))
+    assert semanal.equals(serie_semanal_casos(con))
+    with abrir_casos(pasta) as todos:  # sem lista, vale a pasta inteira
+        assert todos.execute("SELECT DISTINCT ano FROM casos ORDER BY ano").fetchall() == [(1999,), (2020,), (2021,)]

@@ -29,3 +29,5 @@ data/processed/*_detalhado.csv
 
 # Metadados gerados por pip install -e
 *.egg-info/
+# Parquets por ano gerados pelo pipeline (reconstruíveis a partir de data/raw/)
+data/processed/detalhado/

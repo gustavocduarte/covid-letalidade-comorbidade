@@ -47,6 +47,15 @@ def sem_escrita_em_data(request):
     assert foto_da_pasta(pasta) == antes, f"{request.node.nodeid} alterou arquivos em {pasta}"
 
 
+@pytest.fixture(autouse=True, scope="session")
+def sem_escrita_em_data_na_sessao():
+    """Mesma trava para a sessão toda: pega o que fixtures de escopo maior gravam antes do teste."""
+    pasta = RAIZ / "data"
+    antes = foto_da_pasta(pasta)
+    yield
+    assert foto_da_pasta(pasta) == antes, f"a sessão de testes alterou arquivos em {pasta}"
+
+
 @pytest.fixture(scope="session")
 def csvs_sinteticos() -> dict[int, Path]:
     return CSVS_SINTETICOS

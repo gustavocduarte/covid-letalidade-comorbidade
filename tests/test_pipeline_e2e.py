@@ -6,6 +6,7 @@ de borda: EVOLUCAO 1/2/3/9/vazio, CLASSI_FIN != 5, UF inválida ou vazia, data i
 
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 
@@ -20,7 +21,12 @@ URLS_SINTETICAS = {
 
 
 @pytest.fixture(scope="module")
-def saidas(tmp_path_factory) -> Path:
+def pasta_detalhado(tmp_path_factory) -> Path:
+    return tmp_path_factory.mktemp("detalhado")
+
+
+@pytest.fixture(scope="module")
+def saidas(tmp_path_factory, pasta_detalhado) -> Path:
     mp = pytest.MonkeyPatch()
     destino = tmp_path_factory.mktemp("processed")
 
@@ -31,6 +37,7 @@ def saidas(tmp_path_factory) -> Path:
     mp.setattr(pipeline, "PASTA_RAW", FIXTURES)
     mp.setattr(pipeline, "baixar_arquivo", sem_rede)
     mp.setattr(pipeline, "ANO_ATUAL", 2021)
+    mp.setattr(pipeline, "PASTA_DETALHADO", pasta_detalhado)
     mp.setattr(load, "PROCESSED_DIR", destino)
     try:
         pipeline.executar_pipeline()
@@ -51,7 +58,7 @@ def test_gera_todos_os_arquivos(saidas):
     esperados = {
         "letalidade_por_comorbidade_todos_anos.csv", "letalidade_por_comorbidade_agregado.csv",
         "casos_covid_por_semana.csv", "casos_covid_semanal_por_comorbidade.csv",
-        "letalidade_por_estado_agregado.csv", "casos_covid_detalhado.csv",
+        "letalidade_por_estado_agregado.csv", "casos_covid_por_semana_estado.csv",
     }
     assert {p.name for p in saidas.iterdir()} == esperados
 
@@ -136,6 +143,13 @@ def test_serie_semanal_por_comorbidade(saidas):
     assert serie("ASMA") == {}
 
 
+def test_serie_semanal_por_estado_ignora_data_invalida_e_uf_vazia(saidas):
+    df = pd.read_csv(saidas / "casos_covid_por_semana_estado.csv")
+    assert len(df) == 12
+    assert df["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
+    assert _linha(df, semana="2020-12-28", sigla="SP").casos == 2  # a virada do ano soma os dois arquivos
+
+
 # Decisão para a etapa de validação: casos sem UF continuam fora da tabela por estado; o pipeline
 # registra a contagem e o dashboard avisa ("N casos sem estado informado não entram no mapa").
 # Nos dados reais só há UF vazia (333 casos), não inválida; revisar este teste nessa etapa.
@@ -154,8 +168,12 @@ def test_letalidade_por_estado_so_com_ufs_validas(saidas):
     assert set(df["sigla"]) == set(esperado)
 
 
-def test_cache_detalhado_guarda_so_covid_sem_classi_fin(saidas):
-    df = pd.read_csv(saidas / "casos_covid_detalhado.csv")
+def test_parquets_guardam_so_covid_sem_classi_fin(saidas, pasta_detalhado):
+    arquivos = sorted(p.relative_to(pasta_detalhado).as_posix() for p in pasta_detalhado.rglob("*.parquet"))
+    assert arquivos == ["ano=2020/casos.parquet", "ano=2021/casos.parquet"]
+    con = duckdb.connect()
+    glob = (pasta_detalhado / "ano=*" / "casos.parquet").as_posix()
+    df = con.execute(f"SELECT * FROM read_parquet('{glob}', hive_partitioning=true)").df()
     assert len(df) == 22  # 14 casos de COVID em 2020 + 8 em 2021
     assert "CLASSI_FIN" not in df.columns
     assert {"DT_SIN_PRI", "SG_UF", "EVOLUCAO", "ano", "DIABETES"} <= set(df.columns)

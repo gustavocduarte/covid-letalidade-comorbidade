@@ -9,24 +9,25 @@ import subprocess
 import sys
 from pathlib import Path
 
+import duckdb
 import pandas as pd
 import pytest
 from pandas.testing import assert_frame_equal
 
+from config import COMORBIDADES, DUCKDB_LIMITE_MEMORIA, NOME_CACHE_DETALHADO, NOME_PARQUET_ANO
 from extract import URLS_SRAG
 
 RAIZ = Path(__file__).resolve().parent.parent
 RAW = RAIZ / "data" / "raw"
 PROCESSADOS = RAIZ / "data" / "processed"
 
-# Gerados por pipeline.py (os dois últimos, em passo separado, a partir do cache detalhado).
+# Gerados por pipeline.py; gerar_serie_estado.py roda em seguida e regrava o último a partir dos Parquets.
 SAIDAS = [
     "letalidade_por_comorbidade_todos_anos.csv",
     "letalidade_por_comorbidade_agregado.csv",
     "casos_covid_por_semana.csv",
     "casos_covid_semanal_por_comorbidade.csv",
     "letalidade_por_estado_agregado.csv",
-    "casos_covid_detalhado.csv",
     "casos_covid_por_semana_estado.csv",
 ]
 
@@ -90,3 +91,36 @@ def test_saida_igual_a_versionada(saidas_geradas, nome):
     assert_frame_equal(gerado[colunas_exatas], esperado[colunas_exatas], check_exact=True)
     if colunas_taxa:
         assert_frame_equal(gerado[colunas_taxa], esperado[colunas_taxa], check_exact=False, rtol=TOLERANCIA_TAXA)
+
+
+def test_parquets_iguais_ao_cache_csv_anterior(saidas_geradas):
+    """Cada linha dos Parquets é igual à linha do cache CSV que gerou os CSVs versionados (mesma posição)."""
+    cache = PROCESSADOS / NOME_CACHE_DETALHADO
+    if not cache.exists():
+        pytest.skip(f"{NOME_CACHE_DETALHADO} não existe localmente (cache ignorado pelo git)")
+
+    con = duckdb.connect()
+    con.execute(f"SET memory_limit = '{DUCKDB_LIMITE_MEMORIA}'")
+    # No cache tudo era texto: datas com hora ("2020-03-02T00:00:00.000Z") e códigos como "2.0".
+    conversao = {
+        "DT_SIN_PRI": "TRY_CAST(left(DT_SIN_PRI, 10) AS DATE)",
+        "SG_UF": "SG_UF",
+        **{c: f"TRY_CAST(TRY_CAST({c} AS DOUBLE) AS SMALLINT)" for c in ["EVOLUCAO", *COMORBIDADES]},
+    }
+    anos = sorted(int(p.name.removeprefix("ano=")) for p in (saidas_geradas / "detalhado").glob("ano=*"))
+    assert anos == sorted(URLS_SRAG)
+
+    for ano in anos:
+        parquet = (saidas_geradas / "detalhado" / f"ano={ano}" / NOME_PARQUET_ANO).as_posix()
+        iguais = " AND ".join(f"c.{coluna} IS NOT DISTINCT FROM p.{coluna}" for coluna in conversao)
+        # numeradas depois do filtro de ano, na ordem do arquivo
+        linhas_csv, linhas_parquet, divergentes = con.execute(f"""
+            WITH
+            c AS (SELECT row_number() OVER () AS n, {", ".join(f"{expr} AS {c}" for c, expr in conversao.items())}
+                  FROM read_csv('{cache.as_posix()}', delim=',', header=true, all_varchar=true) WHERE ano = '{ano}'),
+            p AS (SELECT row_number() OVER () AS n, {", ".join(conversao)} FROM read_parquet('{parquet}'))
+            SELECT (SELECT count(*) FROM c), (SELECT count(*) FROM p),
+                   count(*) FILTER (WHERE c.n IS NULL OR p.n IS NULL OR NOT ({iguais}))
+            FROM c FULL JOIN p ON c.n = p.n
+        """).fetchone()
+        assert (linhas_parquet, divergentes) == (linhas_csv, 0), f"{ano}: parquet difere do cache CSV"

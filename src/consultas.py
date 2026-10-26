@@ -5,7 +5,7 @@ pandas equivalente em transform.py.
 """
 
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -24,11 +24,15 @@ from config import (
 
 
 @contextmanager
-def abrir_casos(pasta_detalhado: Path, limite_memoria: str = DUCKDB_LIMITE_MEMORIA) -> Iterator[duckdb.DuckDBPyConnection]:
+def abrir_casos(
+    pasta_detalhado: Path, anos: Iterable[int] | None = None, limite_memoria: str = DUCKDB_LIMITE_MEMORIA,
+) -> Iterator[duckdb.DuckDBPyConnection]:
     """Conexão com a view `casos` sobre os Parquets de ano=*/ (a pasta do ano vira a coluna `ano`).
 
-    O caminho vem sempre por argumento, para quem chama poder apontá-lo para outro lugar.
+    O caminho e os anos vêm sempre por argumento, para quem chama poder apontá-los para outro lugar.
+    `anos` restringe as consultas a esses anos (ano=* fora da lista é ignorado); None usa todos.
     """
+    filtro = "" if anos is None else f"WHERE ano IN ({', '.join(str(int(a)) for a in anos) or 'NULL'})"
     glob = (pasta_detalhado / "ano=*" / NOME_PARQUET_ANO).as_posix().replace("'", "''")
     # O spill do DuckDB vai para uma pasta temporária do sistema, nunca para o repositório.
     with tempfile.TemporaryDirectory() as pasta_temp:
@@ -36,11 +40,10 @@ def abrir_casos(pasta_detalhado: Path, limite_memoria: str = DUCKDB_LIMITE_MEMOR
         try:
             con.execute(f"SET memory_limit = '{limite_memoria}'")
             con.execute(f"SET temp_directory = '{Path(pasta_temp).as_posix()}'")
-            con.execute(f"CREATE VIEW casos AS SELECT * FROM read_parquet('{glob}', hive_partitioning=true)")
+            con.execute(f"CREATE VIEW casos AS SELECT * FROM read_parquet('{glob}', hive_partitioning=true) {filtro}")
             # Anos pelos arquivos, não pelas linhas: um ano sem nenhum caso de COVID tem Parquet vazio.
-            con.execute(
-                f"CREATE VIEW anos AS SELECT regexp_extract(file, 'ano=([0-9]+)', 1)::BIGINT AS ano FROM glob('{glob}')"
-            )
+            con.execute(f"""CREATE VIEW anos AS SELECT ano FROM (
+                SELECT regexp_extract(file, 'ano=([0-9]+)', 1)::BIGINT AS ano FROM glob('{glob}')) {filtro}""")
             yield con
         finally:
             con.close()
