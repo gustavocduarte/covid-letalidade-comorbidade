@@ -18,6 +18,7 @@ from config import (
     NOMES_COMORBIDADES,
     PROCESSED_DIR,
 )
+from qualidade import aviso_casos_sem_estado
 
 CAMINHO_DADOS = PROCESSED_DIR / NOME_AGREGADO
 CAMINHO_SEMANAL = PROCESSED_DIR / NOME_SEMANAL
@@ -268,6 +269,9 @@ with st.container(border=True):
         "também no texto ao passar o mouse), de propósito, pra essa instabilidade não "
         "ficar escondida atrás da cor."
     )
+    aviso_sem_estado = aviso_casos_sem_estado()
+    if aviso_sem_estado:
+        st.info(aviso_sem_estado)
 
     # Trocamos o Altair/Vega-Lite pelo Plotly nesse mapa, e dentro do Plotly usamos
     # especificamente `choropleth_map` (WebGL/MapLibre) em vez de `choropleth` (SVG).
