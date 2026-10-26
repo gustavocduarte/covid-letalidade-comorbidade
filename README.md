@@ -27,6 +27,8 @@ Comparação da curva de casos entre estados ao longo do tempo, normalizada pelo
 - Calcula a taxa de letalidade (óbitos ÷ (óbitos + curas), entre casos com desfecho
   conhecido) para 11 comorbidades, comparando quem tinha a condição com quem não tinha.
 - Calcula a mesma taxa por estado e ao longo do tempo (semanal).
+- Converte cada ano em Parquet (DuckDB) e gera as tabelas com consultas SQL sobre eles, com
+  memória limitada a 400 MB.
 - Apresenta tudo num dashboard interativo (Streamlit): gráficos de barras, linha do
   tempo, mapa coroplético do Brasil por estado, e uma tabela explorável por comorbidade.
 
@@ -98,9 +100,13 @@ vêm prontos no repositório.*
 Isso baixa os 7 anos de dados brutos do SIVEP-Gripe (~4,9 GB no total — pode demorar
 dependendo da sua internet) e gera os arquivos processados usados pelo dashboard. Os
 CSVs brutos ficam salvos permanentemente em `data/raw/`, então esse download só
-acontece uma vez.
+acontece uma vez. Cada ano também vira um Parquet em `data/processed/detalhado/`
+(`ano=AAAA/casos.parquet`, só os casos de COVID e as colunas usadas; fora do git).
+
+O pipeline usa DuckDB e requests, que o `requirements.txt` do dashboard não traz:
 
 ```bash
+pip install -e .
 python src/pipeline.py
 ```
 
@@ -110,7 +116,10 @@ python src/pipeline.py
 python src/baixar_geojson.py
 ```
 
-### 7. Gerar a série semanal de casos por estado — opcional
+### 7. Regerar só a série semanal de casos por estado — opcional
+
+O `pipeline.py` já gera essa série. Este script a regera a partir dos Parquets, sem baixar
+nem converter nada:
 
 ```bash
 python src/gerar_serie_estado.py
@@ -138,7 +147,37 @@ ruff check .
 
 O teste de regressão "dourado" (`pytest -m golden`) roda o pipeline completo sobre os
 dados brutos de `data/raw/` (~4,8 GB, uns 3 minutos) e compara com os CSVs versionados.
-Ele fica fora da execução padrão e só roda sob demanda, localmente.
+Ele fica fora da execução padrão e só roda sob demanda, localmente. Além dos CSVs, confere
+que os Parquets batem com o resumo versionado em `tests/golden/detalhado_resumo.json`
+(linhas, óbitos, curas, casos por UF e contagem de valores de cada coluna, por ano).
+
+## Como o pipeline funciona
+
+```
+data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB) ──► CSVs em data/processed/ ──► dashboard
+   (194 colunas)          data/processed/       src/consultas.py          (pequenos, versionados)
+                          detalhado/ano=AAAA/
+                          (casos de COVID,
+                           14 colunas)
+```
+
+1. `conversao.py` lê o CSV bruto com DuckDB, fica só com `CLASSI_FIN = 5` e as colunas
+   usadas, com tipos (datas como DATE, códigos como inteiros), e grava um Parquet zstd.
+2. `consultas.py` calcula letalidade por comorbidade e por estado e as séries semanais
+   direto nos Parquets (uma view `casos` sobre `ano=*/`).
+3. `pipeline.py` orquestra os dois passos e grava os CSVs com `load.py`.
+
+**Memória e tamanho.** A conversão e as consultas rodam com o DuckDB limitado a 400 MB
+(o excedente iria para disco temporário). Medido com o pandas como referência:
+
+| | pandas | DuckDB (limite de 400 MB) |
+|---|---|---|
+| Ano 2021 (1,8 GB de CSV, 1,2 milhão de casos): pico de memória / tempo | 0,74 GiB / 24 s | 0,21 GiB / 12 s |
+| Pipeline completo (7 anos): pico de memória / tempo | 0,74 GiB / 71 s | 0,19 GiB / 43 s |
+| Casos de COVID de 2021 em disco | 71,1 MiB (CSV) | 4,3 a 5,0 MiB (Parquet zstd) |
+
+Os Parquets dos 7 anos somam 8,4 MiB, contra 141 MB do cache em CSV que o pipeline gerava
+antes.
 
 ## Estrutura de pastas
 
@@ -147,20 +186,28 @@ covid-letalidade-comorbidade/
 ├── data/
 │   ├── raw/          # CSVs brutos do SIVEP-Gripe, um por ano (gerado pelo passo 5)
 │   ├── processed/    # Dados já tratados, usados pelo dashboard (gerado pelos passos 5-7)
+│   │   └── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet), fora do git
 │   └── geo/          # Contorno geográfico dos estados em GeoJSON (gerado pelo passo 6)
 ├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF) e texto extraído
 ├── src/
 │   ├── extract.py              # E do ETL: baixa os CSVs brutos do OpenDataSUS
-│   ├── transform.py            # T do ETL: filtra COVID, calcula taxas de letalidade
+│   ├── conversao.py            # T do ETL: CSV bruto -> Parquet só com casos de COVID (DuckDB)
+│   ├── consultas.py            # T do ETL: taxas de letalidade e séries semanais em SQL (DuckDB)
+│   ├── transform.py            # Versão pandas das mesmas contas, mantida como referência dos testes
 │   ├── load.py                 # L do ETL: salva os resultados em data/processed/
+│   ├── config.py               # Caminhos, URLs, colunas e códigos de domínio
 │   ├── pipeline.py             # Orquestra E-T-L pros 7 anos, um de cada vez
 │   ├── baixar_geojson.py       # Baixa e verifica o contorno dos 27 estados (API do IBGE)
 │   ├── gerar_serie_estado.py   # Gera a série semanal de casos por estado
 │   └── dashboard.py            # O dashboard Streamlit em si
 ├── tests/
-│   ├── test_transform.py       # Testes da lógica de transformação
+│   ├── test_transform.py       # Testes da lógica de transformação (versão pandas)
+│   ├── test_conversao.py       # CSV bruto -> Parquet sobre a amostra sintética
+│   ├── test_consultas.py       # Consultas SQL contra o pandas e contra valores calculados à mão
+│   ├── test_travas.py          # As travas de teste: sem rede e sem escrita em data/
 │   ├── test_pipeline_e2e.py    # Pipeline de ponta a ponta sobre uma amostra sintética
 │   ├── test_golden.py          # Regressão: pipeline completo vs. CSVs versionados (só local)
+│   ├── golden/                 # Resumo versionado dos Parquets (referência do teste golden)
 │   └── fixtures/               # Amostra sintética do SIVEP-Gripe usada nos testes
 ├── pyproject.toml              # Dependências por grupo, Python mínimo e config do pytest/Ruff
 ├── requirements.txt            # Dependências do dashboard, com versões fixas (Streamlit Cloud)

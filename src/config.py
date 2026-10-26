@@ -36,6 +36,7 @@ ENCODING_CSV = "utf-8"
 DUCKDB_LIMITE_MEMORIA = "400MB"
 
 # Nomes dos arquivos gerados em data/processed/.
+# Cache CSV antigo (já não é gerado): o teste golden o usa como referência enquanto ele existir no disco.
 NOME_CACHE_DETALHADO = "casos_covid_detalhado.csv"
 NOME_TODOS_ANOS = "letalidade_por_comorbidade_todos_anos.csv"
 NOME_AGREGADO = "letalidade_por_comorbidade_agregado.csv"

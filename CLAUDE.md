@@ -42,7 +42,7 @@ de letalidade de COVID-19 por comorbidade).
 - Scripts, saídas e cópias temporárias vão em `%TEMP%`, nunca dentro do repositório.
 
 ## Dados
-- `data/raw/` e caches grandes intermediários (ex.: `data/processed/casos_covid_detalhado.csv`)
+- `data/raw/` e os Parquets por ano de `data/processed/detalhado/` (caches intermediários)
   não vão para o git.
 - Os CSVs pequenos de `data/processed/` e o GeoJSON são versionados, porque o dashboard
   publicado depende deles.
