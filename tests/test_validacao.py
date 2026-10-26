@@ -1,7 +1,10 @@
 """Verificações de qualidade sobre os Parquets: valores à mão da amostra sintética e casos de erro."""
 
+import json
+
 import pytest
 
+import load
 import validacao
 from consultas import (
     abrir_casos,
@@ -13,7 +16,7 @@ from consultas import (
     serie_semanal_por_estado,
 )
 from conversao import csv_para_parquet
-from validacao import AVISO, ERRO, estatisticas_por_ano, validar_casos, validar_saidas
+from validacao import AVISO, ERRO, estatisticas_por_ano, montar_relatorio, validar_casos, validar_saidas
 
 CAMPOS_ZERADOS = {
     "linhas": 0, "sem_uf": 0, "uf_invalida": 0, "sem_data": 0, "data_fora_janela": 0, "sem_desfecho": 0,
@@ -170,3 +173,46 @@ def test_cada_invariante_violado_vira_erro(saidas_validas, codigo, tabela, alter
 
     assert codigo in {a.codigo for a in achados}
     assert {a.nivel for a in achados} == {ERRO}
+
+
+def test_relatorio_da_amostra_sintetica(pasta_parquets):
+    e = _estatisticas(pasta_parquets, [2020, 2021])
+    achados = validar_casos(e)
+
+    relatorio = montar_relatorio(e, achados)
+
+    assert relatorio["versao"] == 1
+    assert relatorio["aprovado"] is False  # 2020 tem 2 de 14 datas inválidas (> 1%)
+    assert list(relatorio["anos"]) == ["2020", "2021"]
+    assert relatorio["anos"]["2020"]["sem_uf"] == 1
+    assert relatorio["totais"] == CAMPOS_ZERADOS | {
+        "linhas": 22, "sem_uf": 1, "uf_invalida": 2, "sem_data": 2, "sem_desfecho": 5, "fora_da_serie_estado": 3,
+    }
+    # erros primeiro; depois por código e ano
+    assert [(a["nivel"], a["codigo"], a["ano"]) for a in relatorio["achados"]] == [
+        ("erro", "DATA_INVALIDA", 2020),
+        ("aviso", "SEM_DESFECHO_ACIMA_DO_LIMITE", 2020),
+        ("aviso", "SEM_UF", 2020),
+        ("aviso", "UF_INVALIDA", 2020),
+        ("aviso", "UF_INVALIDA", 2021),
+    ]
+    assert montar_relatorio(e, list(reversed(achados))) == relatorio
+
+
+def test_relatorio_sem_erros_esta_aprovado(parquet_de_casos):
+    parquet_de_casos(2022, [{}] * 10)
+
+    relatorio = montar_relatorio(_estatisticas(parquet_de_casos.pasta, [2022]), [])
+
+    assert relatorio["aprovado"] is True and relatorio["achados"] == []
+
+
+def test_salvar_json_grava_utf8_com_lf_e_ida_e_volta(tmp_path, monkeypatch):
+    monkeypatch.setattr(load, "PROCESSED_DIR", tmp_path)
+    dados = {"mensagem": "ano parcial e recente — já em andamento", "n": 3}
+
+    caminho = load.salvar_json(dados, "teste.json")
+
+    assert caminho == tmp_path / "teste.json"
+    assert b"\r" not in caminho.read_bytes()
+    assert json.loads(caminho.read_text(encoding="utf-8")) == dados

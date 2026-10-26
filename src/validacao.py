@@ -4,7 +4,7 @@ Cada verificação devolve achados de nível "erro" (o pipeline não deve gravar
 (vai para o relatório de qualidade, sem interromper).
 """
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import duckdb
 import pandas as pd
@@ -185,3 +185,15 @@ def validar_saidas(
         erro("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", excesso,
              f"{excesso} comorbidades com mais casos na série que na tabela.")
     return achados
+
+
+def montar_relatorio(estatisticas: dict[int, dict[str, int]], achados: list[Achado]) -> dict:
+    """Relatório de qualidade sem data nem hora, para a saída ser a mesma em toda execução com os mesmos dados."""
+    ordenados = sorted(achados, key=lambda a: (a.nivel != ERRO, a.codigo, a.ano or 0))
+    return {
+        "versao": 1,
+        "aprovado": not any(a.nivel == ERRO for a in achados),
+        "anos": {str(ano): dict(e) for ano, e in estatisticas.items()},
+        "totais": {campo: sum(e[campo] for e in estatisticas.values()) for campo in CAMPOS_ESTATISTICA},
+        "achados": [asdict(a) for a in ordenados],
+    }
