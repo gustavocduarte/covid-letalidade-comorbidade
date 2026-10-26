@@ -136,6 +136,9 @@ def test_serie_semanal_por_comorbidade(saidas):
     assert serie("ASMA") == {}
 
 
+# Decisão para a etapa de validação: casos sem UF continuam fora da tabela por estado; o pipeline
+# registra a contagem e o dashboard avisa ("N casos sem estado informado não entram no mapa").
+# Nos dados reais só há UF vazia (333 casos), não inválida; revisar este teste nessa etapa.
 @pytest.mark.xfail(
     strict=True,
     reason="UF inválida ou vazia não é validada nem filtrada; resolver na validação de dados",
