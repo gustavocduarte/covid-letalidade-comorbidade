@@ -25,6 +25,11 @@ URLS_SRAG = {
 URL_LOCALIDADES = "https://servicodados.ibge.gov.br/api/v1/localidades/estados"
 URL_MALHA = "https://servicodados.ibge.gov.br/api/v3/malhas/estados/{sigla}?formato=application/vnd.geo+json"
 
+# Os CSVs brutos do OpenDataSUS são UTF-8 (conferido linha a linha nos 7 anos). O DuckDB valida
+# a codificação e rejeita latin-1/windows-1252 nesses arquivos; o pandas é leniente, mas as
+# colunas que lemos são ASCII, então os valores não dependem disso.
+ENCODING_CSV = "utf-8"
+
 # Nomes dos arquivos gerados em data/processed/.
 NOME_CACHE_DETALHADO = "casos_covid_detalhado.csv"
 NOME_TODOS_ANOS = "letalidade_por_comorbidade_todos_anos.csv"

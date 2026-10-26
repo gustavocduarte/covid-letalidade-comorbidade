@@ -10,6 +10,7 @@ from config import (
     COMORBIDADE_NAO,
     COMORBIDADE_SIM,
     COMORBIDADES,
+    ENCODING_CSV,
     EVOLUCAO_CURA,
     EVOLUCAO_OBITO,
 )
@@ -17,7 +18,7 @@ from config import (
 
 def carregar_casos_covid(caminho_csv: Path) -> pd.DataFrame:
     """Lê o CSV bruto de um ano usando só as colunas necessárias e filtra os casos de COVID (CLASSI_FIN == 5)."""
-    df = pd.read_csv(caminho_csv, sep=";", encoding="latin1", usecols=COLUNAS_NECESSARIAS)
+    df = pd.read_csv(caminho_csv, sep=";", encoding=ENCODING_CSV, usecols=COLUNAS_NECESSARIAS)
     covid = df[df["CLASSI_FIN"] == CLASSI_FIN_COVID].copy()
     return covid
 
