@@ -5,6 +5,7 @@ de borda: EVOLUCAO 1/2/3/9/vazio, CLASSI_FIN != 5, UF inválida ou vazia, data i
 """
 
 import json
+import os
 from pathlib import Path
 
 import duckdb
@@ -27,12 +28,14 @@ def pasta_detalhado(tmp_path_factory) -> Path:
     return tmp_path_factory.mktemp("detalhado")
 
 
-def _apontar_pipeline_para_amostra(mp: pytest.MonkeyPatch, processed: Path, detalhado: Path) -> None:
+def _apontar_pipeline_para_amostra(
+    mp: pytest.MonkeyPatch, processed: Path, detalhado: Path, raw: Path = FIXTURES
+) -> None:
     def sem_rede(*_args, **_kwargs):
         raise AssertionError("o pipeline tentou baixar um arquivo")
 
     mp.setattr(pipeline, "URLS_SRAG", URLS_SINTETICAS)
-    mp.setattr(pipeline, "PASTA_RAW", FIXTURES)
+    mp.setattr(pipeline, "PASTA_RAW", raw)
     mp.setattr(pipeline, "baixar_arquivo", sem_rede)
     mp.setattr(pipeline, "ANO_ATUAL", 2021)
     mp.setattr(pipeline, "PASTA_DETALHADO", detalhado)
@@ -212,3 +215,108 @@ def test_erro_de_validacao_grava_o_relatorio_e_nenhum_csv(tmp_path, monkeypatch)
     assert relatorio["aprovado"] is False
     primeiro = relatorio["achados"][0]
     assert (primeiro["nivel"], primeiro["codigo"], primeiro["ano"]) == ("erro", "DATA_INVALIDA", 2020)
+
+
+def _atualizar_data(caminho: Path) -> None:
+    """Como se o arquivo tivesse sido baixado de novo: mesma coisa, data de modificação mais recente."""
+    info = caminho.stat()
+    os.utime(caminho, ns=(info.st_atime_ns, info.st_mtime_ns + 10**9))
+
+
+@pytest.fixture
+def ambiente(tmp_path, monkeypatch):
+    """Pipeline sobre cópias dos CSVs sintéticos em tmp_path (os dados brutos podem ser alterados)."""
+    raw = tmp_path / "raw"
+    raw.mkdir()
+    for url in URLS_SINTETICAS.values():
+        nome = url.split("/")[-1]
+        (raw / nome).write_bytes((FIXTURES / nome).read_bytes())
+    _apontar_pipeline_para_amostra(monkeypatch, tmp_path / "processed", tmp_path / "detalhado", raw)
+    monkeypatch.setattr(validacao, "LIMITE_DATA_INVALIDA", 1.0)
+    return raw
+
+
+def test_primeira_execucao_converte_e_a_segunda_esta_em_dia(ambiente):
+    assert pipeline.executar_pipeline() == {2020: pipeline.CONVERTIDO, 2021: pipeline.CONVERTIDO}
+
+    assert pipeline.executar_pipeline() == {2020: pipeline.EM_DIA, 2021: pipeline.EM_DIA}
+
+
+def test_csv_alterado_reconverte_so_aquele_ano(ambiente):
+    pipeline.executar_pipeline()
+    csv_2021 = ambiente / "INFLUD21-sintetico.csv"
+    _atualizar_data(csv_2021)
+
+    assert pipeline.executar_pipeline() == {2020: pipeline.EM_DIA, 2021: pipeline.CONVERTIDO}
+
+
+def test_parquet_apagado_e_reconvertido(ambiente, tmp_path):
+    pipeline.executar_pipeline()
+    (tmp_path / "detalhado" / "ano=2020" / "casos.parquet").unlink()
+
+    assert pipeline.executar_pipeline() == {2020: pipeline.CONVERTIDO, 2021: pipeline.EM_DIA}
+
+
+def test_estado_ilegivel_reconverte_tudo(ambiente, tmp_path):
+    pipeline.executar_pipeline()
+    (tmp_path / "detalhado" / "estado.json").write_text("{quebrado", encoding="utf-8")
+
+    assert pipeline.executar_pipeline() == {2020: pipeline.CONVERTIDO, 2021: pipeline.CONVERTIDO}
+
+
+def test_forcar_reconverte_os_anos_pedidos_sem_baixar(ambiente):
+    pipeline.executar_pipeline()
+
+    assert pipeline.executar_pipeline([2021], forcar=True) == {2021: pipeline.CONVERTIDO}
+    assert pipeline.executar_pipeline() == {2020: pipeline.EM_DIA, 2021: pipeline.EM_DIA}
+
+
+def test_rebaixar_baixa_de_novo_e_converte(ambiente, monkeypatch):
+    pipeline.executar_pipeline()
+    baixados = []
+
+    def baixar_falso(url, pasta):
+        baixados.append(url)
+        return pasta / url.split("/")[-1]  # o CSV já está na pasta
+
+    monkeypatch.setattr(pipeline, "baixar_arquivo", baixar_falso)
+
+    assert pipeline.executar_pipeline([2020], rebaixar=True) == {2020: pipeline.BAIXADO}
+    assert baixados == [URLS_SINTETICAS[2020]]
+
+
+def test_csv_ausente_e_baixado(ambiente, monkeypatch):
+    (ambiente / "INFLUD20-sintetico.csv").rename(ambiente.parent / "guardado.csv")
+
+    def baixar_falso(url, pasta):
+        (ambiente.parent / "guardado.csv").rename(pasta / url.split("/")[-1])
+        return pasta / url.split("/")[-1]
+
+    monkeypatch.setattr(pipeline, "baixar_arquivo", baixar_falso)
+
+    assert pipeline.executar_pipeline() == {2020: pipeline.BAIXADO, 2021: pipeline.CONVERTIDO}
+
+
+def test_so_alguns_anos_atualiza_so_eles_mas_as_saidas_cobrem_todos(ambiente, tmp_path):
+    pipeline.executar_pipeline()
+    csv_2021 = ambiente / "INFLUD21-sintetico.csv"
+    _atualizar_data(csv_2021)
+
+    assert pipeline.executar_pipeline([2021]) == {2021: pipeline.CONVERTIDO}
+
+    todos = pd.read_csv(tmp_path / "processed" / "letalidade_por_comorbidade_todos_anos.csv")
+    assert sorted(todos["ano"].unique()) == [2020, 2021]
+
+
+def test_parquet_de_ano_nao_processado_aborta_sem_gravar_csvs(ambiente, tmp_path):
+    with pytest.raises(pipeline.ParquetsFaltando) as erro:
+        pipeline.executar_pipeline([2021])
+
+    assert erro.value.anos == [2020]
+    assert "python src/cli.py pipeline --anos 2020" in str(erro.value)
+    assert not (tmp_path / "processed").exists()
+
+
+def test_ano_sem_url_e_recusado(ambiente):
+    with pytest.raises(ValueError, match="1999"):
+        pipeline.executar_pipeline([1999])
