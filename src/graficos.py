@@ -3,19 +3,27 @@
 import math
 
 import pandas as pd
+import plotly.express as px
 import plotly.graph_objects as go
 
 from componentes import aplicar_eixo_de_datas, aplicar_template_grafico
 from config import (
+    ALTURA_MAPA_PX,
     COR_ALERTA,
     COR_COM_COMORBIDADE,
     COR_EIXO,
+    COR_FUNDO_PAGINA,
     COR_PRINCIPAL,
     COR_SEM_COMORBIDADE,
+    ESCALA_LETALIDADE,
+    ESTILO_MAPA,
+    GRADE_ESTADOS,
+    LARGURA_REFERENCIA_MAPA_PX,
     SEQUENCIA_CORES_SERIES,
 )
-from formatacao import fmt_inteiro, fmt_pontos
+from formatacao import fmt_decimal, fmt_inteiro, fmt_pontos
 from indicadores import COR_DA_CLASSE, classe_da_diferenca
+from mapa import enquadramento, limites_do_geojson, siglas_com_rotulo
 
 ALTURA_POR_LINHA_PX = 36
 OPACIDADE_AMOSTRA_PEQUENA = 0.7
@@ -149,4 +157,66 @@ def figura_serie_semanal(
         height=ALTURA_SERIE_PX, margin={"l": 10, "r": 10, "t": 10, "b": 30}, hovermode="x unified",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0, "font": {"size": 12}},
     )
+    return figura
+
+
+TITULO_ESCALA_LETALIDADE = "Letalidade (%)"
+TAMANHO_ROTULO_MAPA = 8
+
+
+def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
+    """Mapa dos estados coloridos pela letalidade, com o número de casos só onde cabe (os demais, no hover).
+
+    `estados` sai de `preparar_estados`. Usa `choropleth_map` (WebGL/MapLibre): o `choropleth` em SVG desenhava
+    todos os estados na mesma caixa nos navegadores testados.
+    """
+    centro, zoom = enquadramento(limites_do_geojson(geojson), LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX)
+    mapa = px.choropleth_map(
+        estados, geojson=geojson, locations="sigla", featureidkey="properties.sigla", color="taxa_letalidade",
+        color_continuous_scale=list(ESCALA_LETALIDADE), hover_name="nome",
+        hover_data={"sigla": False, "taxa_letalidade": ":.1f", "casos_fmt": True},
+        labels={"taxa_letalidade": TITULO_ESCALA_LETALIDADE, "casos_fmt": "Casos de COVID"},
+        map_style=ESTILO_MAPA, center=centro, zoom=zoom, opacity=1,
+    )
+    com_rotulo = siglas_com_rotulo(
+        geojson, zoom, dict(zip(estados["sigla"], estados["casos_fmt"], strict=True)),
+        dict(zip(estados["sigla"], zip(estados["lon_centro"], estados["lat_centro"], strict=True), strict=True)),
+    )
+    # textfont.color só aceita uma cor por camada: um grupo de rótulos para cada cor.
+    for cor, grupo in estados[estados["sigla"].isin(com_rotulo)].groupby("cor_rotulo"):
+        mapa.add_trace(go.Scattermap(
+            lat=grupo["lat_centro"], lon=grupo["lon_centro"], mode="text", text=grupo["casos_fmt"],
+            textfont={"size": TAMANHO_ROTULO_MAPA, "color": cor}, hoverinfo="skip", showlegend=False,
+        ))
+    aplicar_template_grafico(mapa)
+    mapa.update_traces(marker_line_color=COR_FUNDO_PAGINA, marker_line_width=0.8, selector={"type": "choroplethmap"})
+    mapa.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
+    return mapa
+
+
+def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:
+    """Um bloco do mesmo tamanho por estado, na posição de GRADE_ESTADOS, coloridos pela letalidade, com sigla e taxa."""
+    colunas = max(c for c, _ in GRADE_ESTADOS.values()) + 1
+    linhas = max(r for _, r in GRADE_ESTADOS.values()) + 1
+    z = [[None] * colunas for _ in range(linhas)]
+    detalhes = [[""] * colunas for _ in range(linhas)]
+    figura = go.Figure()
+    for estado in estados.itertuples():
+        coluna, linha = GRADE_ESTADOS[estado.sigla]
+        z[linha][coluna] = estado.taxa_letalidade
+        detalhes[linha][coluna] = (
+            f"<b>{estado.nome}</b><br>Letalidade: {fmt_decimal(estado.taxa_letalidade)}%<br>{estado.casos_fmt} casos"
+        )
+        figura.add_annotation(
+            x=coluna, y=linha, text=f"<b>{estado.sigla}</b><br>{fmt_decimal(estado.taxa_letalidade)}%", showarrow=False,
+            font={"color": estado.cor_rotulo, "size": 12},
+        )
+    figura.add_trace(go.Heatmap(
+        z=z, customdata=detalhes, hovertemplate="%{customdata}<extra></extra>", xgap=4, ygap=4, hoverongaps=False,
+        colorscale=list(ESCALA_LETALIDADE), colorbar={"title": {"text": TITULO_ESCALA_LETALIDADE}, "thickness": 10},
+    ))
+    aplicar_template_grafico(figura)
+    figura.update_xaxes(visible=False, constrain="domain")
+    figura.update_yaxes(visible=False, autorange="reversed", scaleanchor="x")
+    figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
     return figura

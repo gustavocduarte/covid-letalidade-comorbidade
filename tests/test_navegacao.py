@@ -53,7 +53,7 @@ def test_pagina_linha_do_tempo_e_estados_abre_sem_erro_e_com_sua_descricao(tela_
     tela = tela_inicial.switch_page(pagina.arquivo).run()
 
     assert not tela.exception
-    assert "Letalidade de COVID por estado" in [s.value for s in tela.subheader]
+    assert "Letalidade por estado" in _html(tela)
     assert pagina.descricoes[0] in [c.value for c in tela.caption]
     assert "Explorar uma comorbidade" not in _html(tela)
 
@@ -139,3 +139,18 @@ def test_serie_semanal_abre_com_duas_comorbidades_e_aceita_no_maximo_tres():
 
     assert not tela.exception
     assert _nomes_das_linhas(tela) == ["Brasil", "Asma", "Cardiovascular", "Diabetes"]
+
+
+def test_estados_alternam_entre_mapa_e_blocos():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    def tipos(t):
+        return [d["type"] for g in t.get("plotly_chart") for d in json.loads(g.proto.spec)["data"]]
+
+    assert "choroplethmap" in tipos(tela) and "heatmap" not in tipos(tela)
+
+    alternador = next(b for b in tela.get("button_group") if b.proto.id and "Tipo de mapa" in str(b.proto.label))
+    tela = alternador.set_value("Blocos").run()
+
+    assert not tela.exception and "heatmap" in tipos(tela) and "choroplethmap" not in tipos(tela)

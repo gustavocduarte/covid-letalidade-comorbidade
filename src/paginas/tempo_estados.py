@@ -4,38 +4,25 @@ import json
 
 import altair as alt
 import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
 import streamlit as st
 
-from componentes import aplicar_template_grafico, exibir_grafico, html_kpi, titulo_painel
+from componentes import exibir_grafico, html_kpi, titulo_painel
 from config import (
-    ALTURA_MAPA_PX,
     CAMINHO_ESTADO,
     CAMINHO_GEOJSON,
     CAMINHO_SEMANAL,
     CAMINHO_SEMANAL_COMORBIDADE,
     CAMINHO_SEMANAL_ESTADO,
     COMORBIDADES_SOBREPOSTAS_INICIAIS,
-    COR_FUNDO_PAGINA,
     COR_GRADE,
     COR_TEXTO,
     DATA_INICIO_VACINACAO,
-    ESCALA_LETALIDADE,
-    ESTILO_MAPA,
-    LARGURA_REFERENCIA_MAPA_PX,
     MAXIMO_COMORBIDADES_SOBREPOSTAS,
     NOMES_CURTOS_COMORBIDADES,
+    TIPOS_DE_MAPA,
 )
-from graficos import ESCALAS_SERIE, figura_serie_semanal
-from indicadores_tempo import kpis_tempo, resumo_por_estado
-from mapa import (
-    centro_aproximado,
-    cor_texto_contraste,
-    enquadramento,
-    limites_do_geojson,
-    siglas_com_rotulo,
-)
+from graficos import ESCALAS_SERIE, figura_blocos_estados, figura_mapa_estados, figura_serie_semanal
+from indicadores_tempo import kpis_tempo, preparar_estados, resumo_por_estado
 from qualidade import aviso_casos_sem_estado
 
 # Referência temporal no gráfico da linha do tempo, sem implicar relação de causa e efeito.
@@ -83,87 +70,29 @@ with st.container(border=True, key="painel_serie"):
         "2026 é ano parcial."
     )
 
-with st.container(border=True):
-    st.subheader("Letalidade de COVID por estado")
-    st.caption(
-        "Estados com poucos casos podem ter taxa de letalidade instável por causa da "
-        "amostra pequena — por isso o número de casos aparece sobre os estados em que "
-        "cabe e, em todos, no texto ao passar o mouse, pra essa instabilidade não "
-        "ficar escondida atrás da cor."
-    )
+_estados = preparar_estados(pd.read_csv(CAMINHO_ESTADO), geojson_brasil)
+
+with st.container(border=True, key="painel_estados"):
+    _cabecalho, _tipo = st.columns([3, 1])
+    with _cabecalho:
+        titulo_painel(
+            "Letalidade por estado",
+            "Estados com poucos casos têm taxa menos estável: o número de casos aparece sobre os estados em que "
+            "cabe e, em todos, ao passar o mouse.",
+        )
+    tipo_de_mapa = _tipo.segmented_control(
+        "Tipo de mapa", TIPOS_DE_MAPA, default=TIPOS_DE_MAPA[0], key="tipo_de_mapa", label_visibility="collapsed",
+    ) or TIPOS_DE_MAPA[0]
     aviso_sem_estado = aviso_casos_sem_estado()
     if aviso_sem_estado:
         st.info(aviso_sem_estado)
-
-    # Trocamos o Altair/Vega-Lite pelo Plotly nesse mapa, e dentro do Plotly usamos
-    # especificamente `choropleth_map` (WebGL/MapLibre) em vez de `choropleth` (SVG).
-    # Diagnosticamos que essa máquina tem algum problema de renderização SVG geográfica
-    # complexa: tanto o Altair quanto o `px.choropleth` desenhavam todo estado na mesma
-    # caixa delimitadora (um em cima do outro), mesmo com geometria e lookup corretos —
-    # confirmamos isso testando o GeoJSON num visualizador externo (geojson.io), que
-    # renderizou perfeitamente. Só a versão WebGL (`choropleth_map`) funciona aqui.
-    df_estado = pd.read_csv(CAMINHO_ESTADO)
-    df_estado["taxa_letalidade"] = df_estado["taxa_letalidade"] * 100
-    df_estado["casos_fmt"] = df_estado["casos"].apply(lambda x: f"{x:,}".replace(",", "."))
-    df_estado["nome"] = df_estado["sigla"].map(nomes_estados)
-
-    # Centro aproximado de cada estado (aritmética simples, sem shapely/geopandas — ver
-    # centro_aproximado() no topo do arquivo), pra posicionar o número de casos fixo no mapa.
-    geometria_por_sigla = {f["properties"]["sigla"]: f["geometry"] for f in geojson_brasil["features"]}
-    centros = df_estado["sigla"].map(lambda s: centro_aproximado(geometria_por_sigla[s]))
-    df_estado["lon_centro"] = centros.map(lambda c: c[0])
-    df_estado["lat_centro"] = centros.map(lambda c: c[1])
-
-    minimo_taxa = df_estado["taxa_letalidade"].min()
-    maximo_taxa = df_estado["taxa_letalidade"].max()
-    df_estado["cor_rotulo"] = df_estado["taxa_letalidade"].apply(
-        lambda v: cor_texto_contraste(v, minimo_taxa, maximo_taxa, ESCALA_LETALIDADE, "#FFFFFF", COR_FUNDO_PAGINA)
+    exibir_grafico(
+        figura_mapa_estados(_estados, geojson_brasil) if tipo_de_mapa == TIPOS_DE_MAPA[0]
+        else figura_blocos_estados(_estados)
     )
-
-    centro_mapa, zoom_mapa = enquadramento(
-        limites_do_geojson(geojson_brasil), LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX
+    st.caption(
+        '"Mapa" mostra o formato real do Brasil; "Blocos" dá o mesmo tamanho a cada estado, com sigla e letalidade legíveis.'
     )
-    mapa = px.choropleth_map(
-        df_estado,
-        geojson=geojson_brasil,
-        locations="sigla",
-        featureidkey="properties.sigla",
-        color="taxa_letalidade",
-        color_continuous_scale=list(ESCALA_LETALIDADE),
-        hover_name="nome",
-        hover_data={"sigla": False, "taxa_letalidade": ":.1f", "casos_fmt": True},
-        labels={"taxa_letalidade": "Taxa de letalidade (%)", "casos_fmt": "Casos de COVID"},
-        map_style=ESTILO_MAPA,  # sem mapa-base externo
-        center=centro_mapa,
-        zoom=zoom_mapa,
-        opacity=1,
-    )
-    # Número de casos sobre cada estado. textfont.color do Scattermap só
-    # aceita uma cor por camada (não uma lista por ponto) — por isso separamos os estados
-    # em dois grupos (rótulo branco / rótulo escuro) em vez de uma camada só.
-    # O número só aparece onde cabe no estado; nos pequenos (litoral do Nordeste, ES, RJ...) fica no hover.
-    com_rotulo = siglas_com_rotulo(
-        geojson_brasil, zoom_mapa, dict(zip(df_estado["sigla"], df_estado["casos_fmt"], strict=True)),
-        dict(zip(df_estado["sigla"], zip(df_estado["lon_centro"], df_estado["lat_centro"], strict=True), strict=True)),
-    )
-    for cor, grupo in df_estado[df_estado["sigla"].isin(com_rotulo)].groupby("cor_rotulo"):
-        mapa.add_trace(go.Scattermap(
-            lat=grupo["lat_centro"],
-            lon=grupo["lon_centro"],
-            mode="text",
-            text=grupo["casos_fmt"],
-            textfont={"size": 8, "color": cor},
-            hoverinfo="skip",
-            showlegend=False,
-        ))
-
-    aplicar_template_grafico(mapa)
-    mapa.update_traces(marker_line_color=COR_FUNDO_PAGINA, marker_line_width=0.8, selector={"type": "choroplethmap"})
-    mapa.update_layout(
-        height=ALTURA_MAPA_PX,
-        margin={"l": 0, "r": 0, "t": 0, "b": 0},
-    )
-    st.plotly_chart(mapa, width="stretch")
 
 with st.container(border=True):
     st.subheader("Casos de COVID por estado ao longo do tempo")
@@ -182,7 +111,7 @@ with st.container(border=True):
     nomes_para_sigla = {v: k for k, v in nomes_estados.items()}
 
     # Começa com os 3 estados de mais casos já marcados, pra não abrir com o gráfico vazio.
-    top3_siglas = df_estado.sort_values("casos", ascending=False)["sigla"].head(3).tolist()
+    top3_siglas = _estados.sort_values("casos", ascending=False)["sigla"].head(3).tolist()
     default_nomes = [nomes_estados[sigla] for sigla in top3_siglas]
 
     estados_selecionados = st.pills(

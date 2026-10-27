@@ -1,11 +1,14 @@
 """Figuras do dashboard: o que cada gráfico mostra, sem abrir a tela."""
 
+import json
+
 import pandas as pd
 import plotly.graph_objects as go
 import pytest
 
 from config import (
     CAMINHO_AGREGADO,
+    CAMINHO_GEOJSON,
     COR_COM_COMORBIDADE,
     COR_POSITIVO,
     COR_SEM_COMORBIDADE,
@@ -159,3 +162,37 @@ def test_serie_semanal_em_escala_logaritmica_tira_as_semanas_sem_caso_das_comorb
 
     assert figura.layout.yaxis.type == "log"
     assert all(0 not in list(t.y) for t in figura.data[1:])
+
+
+def _estados():
+    from config import CAMINHO_ESTADO, CAMINHO_GEOJSON
+    from indicadores_tempo import preparar_estados
+
+    with open(CAMINHO_GEOJSON, encoding="utf-8") as f:
+        return preparar_estados(pd.read_csv(CAMINHO_ESTADO), json.load(f))
+
+
+def test_blocos_tem_um_por_estado_na_posicao_da_grade_com_sigla_e_taxa():
+    from config import GRADE_ESTADOS
+    from graficos import figura_blocos_estados
+
+    estados = _estados()
+
+    figura = figura_blocos_estados(estados)
+
+    assert len(figura.layout.annotations) == len(estados) == len(GRADE_ESTADOS) == 27
+    z = figura.data[0].z
+    sp = estados[estados["sigla"] == "SP"].iloc[0]
+    coluna, linha = GRADE_ESTADOS["SP"]
+    assert z[linha][coluna] == pytest.approx(sp["taxa_letalidade"])
+    assert len({tuple(p) for p in GRADE_ESTADOS.values()}) == 27  # nenhum bloco sobre outro
+    assert any(a.text.startswith("<b>SP</b>") for a in figura.layout.annotations)
+
+
+def test_mapa_dos_estados_colore_os_27_estados_pela_letalidade():
+    from graficos import figura_mapa_estados
+
+    with open(CAMINHO_GEOJSON, encoding="utf-8") as f:
+        figura = figura_mapa_estados(_estados(), json.load(f))
+
+    assert figura.data[0].type == "choroplethmap" and len(figura.data[0].locations) == 27

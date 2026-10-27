@@ -95,7 +95,7 @@ def test_dashboard_com_o_relatorio_versionado_avisa_dos_333_casos():
 def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     tela = _tela_de_tempo()
     assert not tela.exception
-    assert "Letalidade de COVID por estado" in [s.value for s in tela.subheader]
+    assert "Letalidade por estado" in " ".join(h.proto.body for h in tela.get("html"))
     # O gráfico do mapa é o que tem a camada choroplethmap; o estilo precisa ser embutido (sem rede).
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
     mapas = [m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"])]

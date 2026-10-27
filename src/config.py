@@ -214,3 +214,15 @@ NOMES_CURTOS_COMORBIDADES = {
 # Linhas de comorbidade já marcadas ao abrir a série semanal, e o máximo que cabe legível no gráfico.
 COMORBIDADES_SOBREPOSTAS_INICIAIS = ("DIABETES", "CARDIOPATI")
 MAXIMO_COMORBIDADES_SOBREPOSTAS = 3
+
+# Posição (coluna, linha) de cada estado na grade de blocos, que dá o mesmo tamanho a todos e mantém a geografia aproximada.
+GRADE_ESTADOS = {
+    "RR": (2, 0), "AP": (4, 0),
+    "AM": (1, 1), "PA": (3, 1), "MA": (5, 1), "CE": (6, 1), "RN": (7, 1),
+    "AC": (0, 2), "RO": (1, 2), "MT": (2, 2), "TO": (3, 2), "PI": (5, 2), "PB": (7, 2),
+    "MS": (2, 3), "GO": (3, 3), "DF": (4, 3), "BA": (5, 3), "PE": (6, 3), "AL": (7, 3),
+    "PR": (3, 4), "SP": (4, 4), "MG": (5, 4), "SE": (6, 4),
+    "SC": (3, 5), "RJ": (5, 5), "ES": (6, 5),
+    "RS": (3, 6),
+}
+TIPOS_DE_MAPA = ("Mapa", "Blocos")

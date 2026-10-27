@@ -2,9 +2,17 @@
 
 import pandas as pd
 
-from config import COR_ALERTA, COR_COM_COMORBIDADE, DATA_INICIO_VACINACAO, FRACAO_PICO_DA_CAUDA
+from config import (
+    COR_ALERTA,
+    COR_COM_COMORBIDADE,
+    COR_FUNDO_PAGINA,
+    DATA_INICIO_VACINACAO,
+    ESCALA_LETALIDADE,
+    FRACAO_PICO_DA_CAUDA,
+)
 from formatacao import fmt_inteiro
 from indicadores import Kpi, juntar_nomes
+from mapa import centro_aproximado, cor_texto_contraste
 
 LIMITE_ESTADOS_NO_KPI = 3
 
@@ -53,3 +61,21 @@ def kpis_tempo(semanal: pd.DataFrame, resumo_estados: pd.DataFrame) -> list[Kpi]
                   f"{FRACAO_PICO_DA_CAUDA:.0%} do pico do estado"),
         Kpi("Semana mais recente", fmt_inteiro(recente["casos"]), f"casos na semana de {recente['semana']:%d/%m/%Y}, ainda em notificação"),
     ]
+
+
+def preparar_estados(estado: pd.DataFrame, geojson: dict) -> pd.DataFrame:
+    """Letalidade por estado pronta para o mapa e para os blocos: taxa em %, nome, casos formatados, centro do estado
+    e a cor do rótulo (branca ou escura) que contrasta com a cor do estado na escala."""
+    df = estado.copy()
+    df["taxa_letalidade"] = df["taxa_letalidade"] * 100
+    df["nome"] = df["sigla"].map({f["properties"]["sigla"]: f["properties"]["nome"] for f in geojson["features"]})
+    df["casos_fmt"] = df["casos"].map(fmt_inteiro)
+    geometrias = {f["properties"]["sigla"]: f["geometry"] for f in geojson["features"]}
+    centros = df["sigla"].map(lambda sigla: centro_aproximado(geometrias[sigla]))
+    df["lon_centro"] = centros.map(lambda c: c[0])
+    df["lat_centro"] = centros.map(lambda c: c[1])
+    menor, maior = df["taxa_letalidade"].min(), df["taxa_letalidade"].max()
+    df["cor_rotulo"] = df["taxa_letalidade"].map(
+        lambda v: cor_texto_contraste(v, menor, maior, ESCALA_LETALIDADE, "#FFFFFF", COR_FUNDO_PAGINA)
+    )
+    return df
