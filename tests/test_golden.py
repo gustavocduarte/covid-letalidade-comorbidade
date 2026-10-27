@@ -31,7 +31,7 @@ RAW = RAIZ / "data" / "raw"
 PROCESSADOS = RAIZ / "data" / "processed"
 RESUMO = Path(__file__).resolve().parent / "golden" / "detalhado_resumo.json"
 
-# Gerados por pipeline.py; gerar_serie_estado.py roda em seguida e regrava o último a partir dos Parquets.
+# Gerados por `cli.py pipeline`; `cli.py serie-estado` roda em seguida e regrava o último a partir dos Parquets.
 SAIDAS = [
     "letalidade_por_comorbidade_todos_anos.csv",
     "letalidade_por_comorbidade_agregado.csv",
@@ -58,7 +58,7 @@ def saidas_geradas(tmp_path_factory) -> Path:
     faltando = _brutos_faltando()
     if faltando:
         pytest.skip(f"data/raw incompleto, faltam {len(faltando)} CSV(s): {', '.join(faltando)}. "
-                    "Rode `python src/pipeline.py` para baixá-los.")
+                    "Rode `python src/cli.py pipeline` para baixá-los.")
 
     base = tmp_path_factory.mktemp("dourado")
     (base / "src").mkdir()
@@ -67,14 +67,19 @@ def saidas_geradas(tmp_path_factory) -> Path:
     (base / "data").mkdir()
     _ligar_pasta(base / "data" / "raw", RAW)
 
-    env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
-    for script in ("pipeline.py", "gerar_serie_estado.py"):
-        resultado = subprocess.run(
-            [sys.executable, str(base / "src" / script)],
-            cwd=base, env=env, capture_output=True, text=True, encoding="utf-8", timeout=1800, check=False,
-        )
-        assert resultado.returncode == 0, f"{script} falhou:\n{resultado.stdout[-2000:]}\n{resultado.stderr[-2000:]}"
+    for comando in (["pipeline"], ["serie-estado"]):
+        _rodar(base, [str(base / "src" / "cli.py"), *comando])
     return base / "data" / "processed"
+
+
+def _rodar(base: Path, argumentos: list[str]) -> subprocess.CompletedProcess:
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONPATH": str(base / "src")}
+    resultado = subprocess.run(
+        [sys.executable, *argumentos],
+        cwd=base, env=env, capture_output=True, text=True, encoding="utf-8", timeout=1800, check=False,
+    )
+    assert resultado.returncode == 0, f"{argumentos} falhou:\n{resultado.stdout[-2000:]}\n{resultado.stderr[-2000:]}"
+    return resultado
 
 
 def _ligar_pasta(link: Path, alvo: Path) -> None:
@@ -177,3 +182,16 @@ def test_parquets_iguais_ao_resumo_versionado(saidas_geradas):
     esperado = json.loads(RESUMO.read_text(encoding="utf-8"))
 
     assert _resumo_por_ano(con, glob) == esperado
+
+
+def test_segunda_execucao_esta_em_dia_e_gera_as_mesmas_saidas(saidas_geradas):
+    arquivos = [*SAIDAS, NOME_RELATORIO]
+    antes = {nome: (saidas_geradas / nome).read_bytes() for nome in arquivos}
+    base = saidas_geradas.parent.parent
+    comando = "import json, pipeline; print(json.dumps(pipeline.executar_pipeline()))"
+
+    resultado = _rodar(base, ["-c", comando])
+
+    status = json.loads(resultado.stdout.strip().splitlines()[-1])
+    assert status == {str(ano): "em_dia" for ano in URLS_SRAG}
+    assert {nome: (saidas_geradas / nome).read_bytes() for nome in arquivos} == antes

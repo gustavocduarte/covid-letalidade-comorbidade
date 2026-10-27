@@ -12,6 +12,7 @@ import duckdb
 import pandas as pd
 import pytest
 
+import cli
 import load
 import pipeline
 import validacao
@@ -50,7 +51,7 @@ def saidas(tmp_path_factory, pasta_detalhado) -> Path:
     # A amostra tem datas inválidas de propósito (2 de 14 casos em 2020), acima do limite de erro.
     mp.setattr(validacao, "LIMITE_DATA_INVALIDA", 1.0)
     try:
-        pipeline.executar_pipeline()
+        assert cli.main(["pipeline"]) == 0
     finally:
         mp.undo()
     return destino
@@ -203,13 +204,13 @@ def test_relatorio_de_qualidade_da_amostra(saidas):
     }
 
 
-def test_erro_de_validacao_grava_o_relatorio_e_nenhum_csv(tmp_path, monkeypatch):
+def test_erro_de_validacao_grava_o_relatorio_e_nenhum_csv(tmp_path, monkeypatch, capsys):
     processed, detalhado = tmp_path / "processed", tmp_path / "detalhado"
     _apontar_pipeline_para_amostra(monkeypatch, processed, detalhado)  # limite padrão: 2 de 14 datas inválidas é erro
 
-    with pytest.raises(validacao.ErroDeValidacao, match="DATA_INVALIDA"):
-        pipeline.executar_pipeline()
+    assert cli.main(["pipeline"]) == 1
 
+    assert "DATA_INVALIDA" in capsys.readouterr().err
     assert [p.name for p in processed.iterdir()] == ["relatorio_qualidade.json"]
     relatorio = json.loads((processed / "relatorio_qualidade.json").read_text(encoding="utf-8"))
     assert relatorio["aprovado"] is False
