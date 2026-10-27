@@ -102,3 +102,10 @@ def test_figura_por_ano_so_da_comorbidade_pedida_e_comeca_do_zero():
     assert list(figura.data[0].x) == ["2020"]
     assert figura.layout.yaxis.range[0] == 0 and figura.layout.yaxis.range[1] > 20
     assert figura.layout.paper_bgcolor == "rgba(0,0,0,0)"
+
+
+def test_dumbbell_rotulos_da_diferenca_ficam_fora_da_area_dos_pontos():
+    figura = figura_dumbbell(_agregado())
+
+    assert all(a.xref == "paper" and a.x == 1 and a.xanchor == "left" and a.xshift > 0 for a in figura.layout.annotations)
+    assert figura.layout.margin.r >= 90  # espaço para o texto mais largo, "+16,4 p.p."

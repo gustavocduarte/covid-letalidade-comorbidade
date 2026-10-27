@@ -16,6 +16,8 @@ from indicadores import COR_DA_CLASSE, classe_da_diferenca
 
 ALTURA_POR_LINHA_PX = 36
 OPACIDADE_AMOSTRA_PEQUENA = 0.7
+RECUO_ROTULO_PX = 10  # os rótulos da diferença ficam fora da área do gráfico, na margem direita
+MARGEM_ROTULOS_PX = 100
 
 
 def figura_dumbbell(agregado: pd.DataFrame) -> go.Figure:
@@ -56,7 +58,7 @@ def figura_dumbbell(agregado: pd.DataFrame) -> go.Figure:
     ))
     for nome, pontos in zip(nomes, agregado["diferenca_pp"], strict=True):
         figura.add_annotation(
-            x=1, xref="paper", y=nome, xanchor="right", showarrow=False, text=fmt_pontos(pontos),
+            x=1, xref="paper", y=nome, xanchor="left", xshift=RECUO_ROTULO_PX, showarrow=False, text=fmt_pontos(pontos),
             font={"color": COR_DA_CLASSE[classe_da_diferenca(pontos)], "size": 12, "family": "JetBrains Mono, monospace"},
         )
 
@@ -68,7 +70,7 @@ def figura_dumbbell(agregado: pd.DataFrame) -> go.Figure:
     )
     figura.update_yaxes(autorange="reversed", showgrid=False, automargin=True, tickfont={"size": 12})
     figura.update_layout(
-        height=len(nomes) * ALTURA_POR_LINHA_PX + 50, margin={"l": 10, "r": 90, "t": 10, "b": 30}, showlegend=False,
+        height=len(nomes) * ALTURA_POR_LINHA_PX + 50, margin={"l": 10, "r": MARGEM_ROTULOS_PX, "t": 10, "b": 30}, showlegend=False,
     )
     return figura
 
