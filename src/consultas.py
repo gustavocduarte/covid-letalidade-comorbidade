@@ -183,3 +183,21 @@ def serie_semanal_por_estado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
         GROUP BY semana, sigla
         ORDER BY semana, sigla
     """).df()
+
+
+def resumo_geral_por_ano(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
+    """Casos, óbitos, curas e letalidade de cada ano, com todos os casos de COVID (inclusive os sem UF)."""
+    return con.execute(f"""
+        WITH contagens AS (
+            SELECT ano, count(*) AS casos,
+                count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_OBITO}) AS obitos,
+                count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_CURA}) AS curas
+            FROM casos GROUP BY ano
+        ), completo AS (
+            SELECT a.ano, coalesce(c.casos, 0) AS casos, coalesce(c.obitos, 0) AS obitos, coalesce(c.curas, 0) AS curas
+            FROM anos a LEFT JOIN contagens c ON c.ano = a.ano
+        )
+        SELECT ano, casos, obitos, curas, obitos + curas AS desfecho_conhecido,
+            CASE WHEN obitos + curas = 0 THEN NULL ELSE obitos::DOUBLE / (obitos + curas) END AS taxa_letalidade
+        FROM completo ORDER BY ano
+    """).df()

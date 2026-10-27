@@ -49,6 +49,7 @@ NOME_SEMANAL = "casos_covid_por_semana.csv"
 NOME_SEMANAL_COMORBIDADE = "casos_covid_semanal_por_comorbidade.csv"
 NOME_ESTADO = "letalidade_por_estado_agregado.csv"
 NOME_SEMANAL_ESTADO = "casos_covid_por_semana_estado.csv"
+NOME_RESUMO_GERAL = "resumo_geral.csv"
 NOME_RELATORIO = "relatorio_qualidade.json"
 
 # As 11 colunas de comorbidade do SIVEP-Gripe (confirmadas no dicionário de dados oficial).

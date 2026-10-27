@@ -1,5 +1,6 @@
 """Agregações em SQL sobre a amostra sintética de tests/fixtures/, com valores calculados à mão."""
 
+import csv
 import shutil
 
 import pandas as pd
@@ -11,6 +12,7 @@ from consultas import (
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
     letalidade_por_estado_por_ano,
+    resumo_geral_por_ano,
     serie_semanal_casos,
     serie_semanal_por_comorbidade,
     serie_semanal_por_estado,
@@ -98,8 +100,8 @@ def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero(tmp_path, csvs_sinteticos
     csv_vazio.write_text(cabecalho + "\n0001;2022-01-03;2022-01-03;F;SP;X;;;1;;;2;;;;;;4;1\n", encoding="utf-8")
     csvs = {**csvs_sinteticos, 2022: csv_vazio}
     pasta = tmp_path / "detalhado"
-    for ano, csv in csvs.items():
-        csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
+    for ano, caminho_csv in csvs.items():
+        csv_para_parquet(caminho_csv, pasta / f"ano={ano}" / "casos.parquet")
 
     with abrir_casos(pasta) as conexao:
         obtido = letalidade_por_comorbidade_por_ano(conexao)
@@ -173,3 +175,43 @@ def test_empate_de_taxa_segue_a_ordem_de_comorbidades_no_agregado_e_por_ano(tmp_
 
 def test_conexao_das_consultas_sem_barra_de_progresso(con):
     assert con.execute("SELECT current_setting('enable_progress_bar')").fetchone()[0] is False
+
+
+def _contagem_direta(csv_caminho) -> tuple[int, int, int]:
+    """(casos, óbitos, curas) de um CSV da amostra, contados linha a linha, sem passar pelo Parquet."""
+    with open(csv_caminho, encoding="utf-8", newline="") as arquivo:
+        linhas = list(csv.DictReader(arquivo, delimiter=";"))
+    covid = [linha for linha in linhas if linha["CLASSI_FIN"] == "5"]
+    return (
+        len(covid),
+        sum(linha["EVOLUCAO"] == "2" for linha in covid),
+        sum(linha["EVOLUCAO"] == "1" for linha in covid),
+    )
+
+
+def test_resumo_geral_por_ano_confere_com_a_contagem_direta_dos_csvs(con, csvs_sinteticos):
+    resumo = resumo_geral_por_ano(con).set_index("ano")
+
+    assert list(resumo.columns) == ["casos", "obitos", "curas", "desfecho_conhecido", "taxa_letalidade"]
+    for ano, caminho in csvs_sinteticos.items():
+        casos, obitos, curas = _contagem_direta(caminho)
+        linha = resumo.loc[ano]
+        assert (linha.casos, linha.obitos, linha.curas, linha.desfecho_conhecido) == (casos, obitos, curas, obitos + curas)
+        assert linha.taxa_letalidade == pytest.approx(obitos / (obitos + curas))
+    assert resumo["casos"].sum() == 22  # inclui o caso sem UF e os de UF inválida
+
+
+def test_resumo_geral_traz_o_ano_sem_casos_com_zeros_e_taxa_indefinida(tmp_path, csvs_sinteticos):
+    cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
+    csv_vazio = tmp_path / "INFLUD22-sintetico.csv"
+    csv_vazio.write_text(cabecalho + "\n0001;2022-01-03;2022-01-03;F;SP;X;;;1;;;2;;;;;;4;1\n", encoding="utf-8")
+    pasta = tmp_path / "detalhado"
+    csv_para_parquet(csv_vazio, pasta / "ano=2022" / "casos.parquet")
+
+    with abrir_casos(pasta) as conexao:
+        resumo = resumo_geral_por_ano(conexao)
+
+    assert resumo.to_dict("records")[0]["casos"] == 0
+    assert resumo["ano"].tolist() == [2022]
+    assert resumo["desfecho_conhecido"].tolist() == [0]
+    assert resumo["taxa_letalidade"].isna().all()

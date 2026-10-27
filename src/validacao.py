@@ -137,6 +137,7 @@ def validar_saidas(
     serie_semanal: pd.DataFrame,
     serie_comorbidade: pd.DataFrame,
     serie_estado: pd.DataFrame,
+    resumo: pd.DataFrame | None = None,
 ) -> list[Achado]:
     """Invariantes entre as tabelas de saída e as contagens dos Parquets; qualquer violação é erro."""
     achados = []
@@ -189,12 +190,35 @@ def validar_saidas(
         if obtido != esperado:
             erro(codigo, abs(obtido - esperado), f"Soma de {nome} = {obtido}, mas os Parquets indicam {esperado}.")
 
+    if resumo is not None:
+        achados += _validar_resumo(resumo, estatisticas, estado)
+
     por_comorbidade = serie_comorbidade.groupby("comorbidade")["casos"].sum()
     maximo = agregado.set_index("comorbidade")["casos_com"].reindex(por_comorbidade.index)
     excesso = int((por_comorbidade > maximo).sum())
     if excesso:
         erro("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", excesso,
              f"{excesso} comorbidades com mais casos na série que na tabela.")
+    return achados
+
+
+def _validar_resumo(resumo: pd.DataFrame, estatisticas: dict[int, dict[str, int]], estado: pd.DataFrame) -> list[Achado]:
+    """Invariantes do resumo geral por ano: casos iguais aos dos Parquets e contagens coerentes."""
+    achados = []
+    casos_por_ano = resumo.set_index("ano")["casos"].to_dict()
+    divergentes = sum(1 for ano, e in estatisticas.items() if casos_por_ano.get(ano) != e["linhas"])
+    if divergentes or set(casos_por_ano) != set(estatisticas):
+        achados.append(Achado(ERRO, "RESUMO_DIFERE_DOS_CASOS", None, divergentes,
+                              "O resumo geral não tem, para cada ano, os mesmos casos dos Parquets."))
+    incoerentes = int(((resumo["obitos"] + resumo["curas"] != resumo["desfecho_conhecido"])
+                       | (resumo["desfecho_conhecido"] > resumo["casos"])).sum())
+    fora = int(((resumo["taxa_letalidade"] < 0) | (resumo["taxa_letalidade"] > 1)).sum())
+    if incoerentes or fora:
+        achados.append(Achado(ERRO, "RESUMO_INCONSISTENTE", None, incoerentes + fora,
+                              "Resumo geral com óbitos + curas diferente dos desfechos, desfechos > casos ou taxa fora de [0, 1]."))
+    if int(estado["obitos"].sum()) > int(resumo["obitos"].sum()):
+        achados.append(Achado(ERRO, "ESTADO_MAIOR_QUE_RESUMO", None, 1,
+                              "Os óbitos por estado passam do total de óbitos do resumo geral."))
     return achados
 
 

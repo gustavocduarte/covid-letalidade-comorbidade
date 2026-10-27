@@ -38,6 +38,7 @@ SAIDAS = [
     "casos_covid_semanal_por_comorbidade.csv",
     "letalidade_por_estado_agregado.csv",
     "casos_covid_por_semana_estado.csv",
+    "resumo_geral.csv",
 ]
 
 # As 14 colunas do Parquet; a impressão digital de um ano usa todas elas.

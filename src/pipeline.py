@@ -15,6 +15,7 @@ from config import (
     NOME_ESTADO,
     NOME_PARQUET_ANO,
     NOME_RELATORIO,
+    NOME_RESUMO_GERAL,
     NOME_SEMANAL,
     NOME_SEMANAL_COMORBIDADE,
     NOME_SEMANAL_ESTADO,
@@ -28,6 +29,7 @@ from consultas import (
     letalidade_por_comorbidade_agregado,
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
+    resumo_geral_por_ano,
     serie_semanal_casos,
     serie_semanal_por_comorbidade,
     serie_semanal_por_estado,
@@ -129,6 +131,8 @@ def executar_pipeline(
         por_ano = letalidade_por_comorbidade_por_ano(con)
         por_ano.insert(1, "ano_completo", por_ano["ano"] != ANO_ATUAL)
         agregado = letalidade_por_comorbidade_agregado(con)
+        resumo = resumo_geral_por_ano(con)
+        resumo.insert(1, "ano_completo", resumo["ano"] != ANO_ATUAL)
         # As séries somam os anos direto, então os dois pedaços de uma semana na virada do ano
         # (sintomas em 30/dez, notificação em jan, arquivo do ano seguinte) saem juntos.
         serie_semanal = serie_semanal_casos(con)
@@ -138,7 +142,7 @@ def executar_pipeline(
 
     achados = validar_casos(estatisticas) + validar_saidas(
         estatisticas, por_ano=por_ano, agregado=agregado, estado=agregado_estado,
-        serie_semanal=serie_semanal, serie_comorbidade=serie_comorbidade, serie_estado=serie_estado,
+        serie_semanal=serie_semanal, serie_comorbidade=serie_comorbidade, serie_estado=serie_estado, resumo=resumo,
     )
     relatorio = montar_relatorio(estatisticas, achados)
     logger.info(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
@@ -160,6 +164,7 @@ def executar_pipeline(
           f"{salvar_csv(serie_comorbidade, NOME_SEMANAL_COMORBIDADE)}")
     logger.info(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
           f"{salvar_csv(serie_estado, NOME_SEMANAL_ESTADO)}")
+    logger.info(f"Resumo geral por ano salvo em: {salvar_csv(resumo, NOME_RESUMO_GERAL)}")
     logger.info(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
           f"{salvar_csv(agregado_estado, NOME_ESTADO)}")
     logger.info(f"\nCasos de COVID por ano (Parquet, uso futuro, sem precisar rebaixar) em: {PASTA_DETALHADO}")

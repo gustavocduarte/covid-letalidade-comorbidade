@@ -11,6 +11,7 @@ from consultas import (
     letalidade_por_comorbidade_agregado,
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
+    resumo_geral_por_ano,
     serie_semanal_casos,
     serie_semanal_por_comorbidade,
     serie_semanal_por_estado,
@@ -136,6 +137,7 @@ def saidas_validas(pasta_parquets):
                 "serie_semanal": serie_semanal_casos(con),
                 "serie_comorbidade": serie_semanal_por_comorbidade(con),
                 "serie_estado": serie_semanal_por_estado(con),
+                "resumo": resumo_geral_por_ano(con),
             },
         }
 
@@ -168,6 +170,9 @@ def _com(df, mascara, coluna, valor):
     ("ESTADO_DIFERE_DOS_CASOS", "estado", lambda df: df.iloc[1:]),
     ("SERIE_SEMANAL_DIFERE_DOS_CASOS", "serie_semanal", lambda df: _com(df, lambda d: d.index == 0, "casos", 50)),
     ("SERIE_ESTADO_DIFERE_DOS_CASOS", "serie_estado", lambda df: df.iloc[:-1]),
+    ("RESUMO_DIFERE_DOS_CASOS", "resumo", lambda df: _com(df, lambda d: d["ano"] == 2020, "casos", 99)),
+    ("RESUMO_INCONSISTENTE", "resumo", lambda df: _com(df, lambda d: d["ano"] == 2021, "obitos", 99)),
+    ("ESTADO_MAIOR_QUE_RESUMO", "estado", lambda df: _com(df, lambda d: d.index == 0, "obitos", 999)),
     ("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", "serie_comorbidade", lambda df: _com(df, lambda d: d.index >= 0, "casos", 1000)),
 ])
 def test_cada_invariante_violado_vira_erro(saidas_validas, codigo, tabela, alteracao):

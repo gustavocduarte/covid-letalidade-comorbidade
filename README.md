@@ -245,6 +245,7 @@ covid-letalidade-comorbidade/
 │   ├── raw/          # CSVs brutos do SIVEP-Gripe, um por ano (gerado pelo passo 5)
 │   ├── processed/    # Dados já tratados, usados pelo dashboard (gerado pelos passos 5-7)
 │   │   ├── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet) e estado.json, fora do git
+│   │   ├── resumo_geral.csv  # Casos, óbitos, curas e letalidade por ano, com todos os casos (versionado)
 │   │   └── relatorio_qualidade.json  # Relatório da validação (versionado)
 │   └── geo/          # Contorno geográfico dos estados em GeoJSON (gerado pelo passo 6)
 ├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF) e texto extraído

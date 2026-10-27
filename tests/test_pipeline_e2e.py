@@ -70,9 +70,18 @@ def test_gera_todos_os_arquivos(saidas):
         "letalidade_por_comorbidade_todos_anos.csv", "letalidade_por_comorbidade_agregado.csv",
         "casos_covid_por_semana.csv", "casos_covid_semanal_por_comorbidade.csv",
         "letalidade_por_estado_agregado.csv", "casos_covid_por_semana_estado.csv",
-        "relatorio_qualidade.json",
+        "resumo_geral.csv", "relatorio_qualidade.json",
     }
     assert {p.name for p in saidas.iterdir()} == esperados
+
+
+def test_resumo_geral_tem_uma_linha_por_ano_com_todos_os_casos(saidas):
+    df = pd.read_csv(saidas / "resumo_geral.csv")
+
+    assert list(df["ano"]) == [2020, 2021]
+    assert list(df["ano_completo"]) == [True, False]  # o ano atual da amostra é 2021
+    assert df["casos"].sum() == 22  # inclui o caso sem UF e os de UF inválida
+    assert list(df["desfecho_conhecido"]) == list(df["obitos"] + df["curas"])
 
 
 def test_todos_anos_tem_uma_linha_por_ano_e_comorbidade(saidas):
