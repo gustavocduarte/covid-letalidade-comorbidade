@@ -73,3 +73,14 @@ def test_dashboard_mostra_o_aviso_so_quando_cabe(relatorio_em, aprovado, sem_uf,
 
 def test_dashboard_com_o_relatorio_versionado_avisa_dos_333_casos():
     assert _avisos_na_tela() == ["333 casos sem estado informado não entram no mapa."]
+
+
+def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    assert not tela.exception
+    assert "Letalidade de COVID por estado" in [s.value for s in tela.subheader]
+    # O gráfico do mapa é o que tem a camada choroplethmap; o estilo precisa ser embutido (sem rede).
+    mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
+    mapas = [m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"])]
+    assert len(mapas) == 1
+    assert mapas[0]["layout"]["map"]["style"] == "white-bg"
