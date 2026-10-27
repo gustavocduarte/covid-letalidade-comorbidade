@@ -3,10 +3,14 @@ e monta um único GeoJSON local, conferindo a sigla de cada estado contra a list
 oficial do IBGE antes de salvar (evita erro de digitação/troca acidental)."""
 
 import json
+import logging
+from pathlib import Path
 
 import requests
 
-from config import CAMINHO_GEOJSON, PASTA_GEO, URL_LOCALIDADES, URL_MALHA
+from config import CAMINHO_GEOJSON, URL_LOCALIDADES, URL_MALHA
+
+logger = logging.getLogger(__name__)
 
 
 def obter_estados_oficiais() -> dict[str, dict]:
@@ -32,7 +36,7 @@ def montar_geojson_brasil() -> dict:
 
     features = []
     for sigla, info in sorted(estados_oficiais.items()):
-        print(f"Baixando contorno de {sigla}...")
+        logger.info("Baixando contorno de %s...", sigla)
         geojson_estado = baixar_contorno_estado(sigla)
 
         for feature in geojson_estado["features"]:
@@ -50,14 +54,17 @@ def montar_geojson_brasil() -> dict:
             feature["properties"]["nome"] = info["nome"]
             features.append(feature)
 
-    print(f"Verificação OK: as {len(features)} siglas batem com os códigos oficiais do IBGE.")
+    logger.info("Verificação OK: as %d siglas batem com os códigos oficiais do IBGE.", len(features))
     return {"type": "FeatureCollection", "features": features}
 
 
-if __name__ == "__main__":
+def baixar_geojson(destino: Path | None = None) -> Path:
+    """Monta o GeoJSON do Brasil e o salva (por padrão em data/geo/); devolve o caminho."""
+    destino = CAMINHO_GEOJSON if destino is None else destino
     geojson_brasil = montar_geojson_brasil()
 
-    PASTA_GEO.mkdir(parents=True, exist_ok=True)
-    with open(CAMINHO_GEOJSON, "w", encoding="utf-8") as arquivo:
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with open(destino, "w", encoding="utf-8") as arquivo:
         json.dump(geojson_brasil, arquivo, ensure_ascii=False)
-    print(f"Salvo em: {CAMINHO_GEOJSON}")
+    logger.info("Salvo em: %s", destino)
+    return destino

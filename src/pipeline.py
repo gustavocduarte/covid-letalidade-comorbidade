@@ -5,9 +5,10 @@ em Parquet só com os casos de COVID e as colunas usadas (DuckDB). As tabelas de
 consultas SQL sobre esses Parquets. Os CSVs brutos ficam salvos permanentemente.
 """
 
-import sys
+import logging
 from collections.abc import Iterable
 from datetime import UTC, datetime
+from pathlib import Path
 
 from config import (
     NOME_AGREGADO,
@@ -44,6 +45,8 @@ from validacao import (
     validar_saidas,
 )
 
+logger = logging.getLogger(__name__)
+
 # O ano corrente ainda está em andamento (banco "vivo", atualizado toda semana),
 # então seus dados são parciais e não devem ser comparados como se fosse um ano cheio.
 ANO_ATUAL = datetime.now(tz=UTC).date().year
@@ -67,23 +70,27 @@ def processar_ano(ano: int, *, forcar: bool = False, rebaixar: bool = False) -> 
 
     baixar = rebaixar or not caminho_csv.exists()
     if baixar:
-        print(f"[{ano}] Baixando...")
+        logger.info(f"[{ano}] Baixando...")
         caminho_csv = baixar_arquivo(url, PASTA_RAW)
     else:
         registro = registros.get(str(ano))
         if not forcar and ano_em_dia(registro, assinatura_csv(caminho_csv, url), caminho_parquet):
-            print(f"[{ano}] Em dia — {registro['casos']:,} casos de COVID no Parquet, nada a fazer.")
+            logger.info(f"[{ano}] Em dia — {registro['casos']:,} casos de COVID no Parquet, nada a fazer.")
             return EM_DIA
-        print(f"[{ano}] CSV já está em disco, pulando download.")
+        logger.info(f"[{ano}] CSV já está em disco, pulando download.")
 
-    print(f"[{ano}] Filtrando casos de COVID e gravando o Parquet...")
+    logger.info(f"[{ano}] Filtrando casos de COVID e gravando o Parquet...")
     casos = csv_para_parquet(caminho_csv, caminho_parquet)
     registros[str(ano)] = registro_do_ano(assinatura_csv(caminho_csv, url), casos)
     gravar_estado(PASTA_DETALHADO, registros)
 
     tamanho_gb = caminho_csv.stat().st_size / 1e9
-    print(f"[{ano}] OK — {casos:,} casos de COVID. CSV bruto ({tamanho_gb:.2f} GB) mantido em {caminho_csv}.")
+    logger.info(f"[{ano}] OK — {casos:,} casos de COVID. CSV bruto ({tamanho_gb:.2f} GB) mantido em {caminho_csv}.")
     return BAIXADO if baixar else CONVERTIDO
+
+
+def _anos_sem_parquet() -> list[int]:
+    return [a for a in sorted(URLS_SRAG) if not (PASTA_DETALHADO / f"ano={a}" / NOME_PARQUET_ANO).exists()]
 
 
 class ParquetsFaltando(Exception):
@@ -113,7 +120,7 @@ def executar_pipeline(
         raise ValueError(f"Anos sem URL em URLS_SRAG: {desconhecidos}")
     status = {ano: processar_ano(ano, forcar=forcar, rebaixar=rebaixar) for ano in escolhidos}
 
-    faltando = [a for a in sorted(URLS_SRAG) if not (PASTA_DETALHADO / f"ano={a}" / NOME_PARQUET_ANO).exists()]
+    faltando = _anos_sem_parquet()
     if faltando:
         raise ParquetsFaltando(faltando)
 
@@ -134,34 +141,38 @@ def executar_pipeline(
         serie_semanal=serie_semanal, serie_comorbidade=serie_comorbidade, serie_estado=serie_estado,
     )
     relatorio = montar_relatorio(estatisticas, achados)
-    print(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
+    logger.info(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
     for achado in achados:
-        print(f"  [{achado.nivel.upper()}] {achado.mensagem}")
+        logger.info(f"  [{achado.nivel.upper()}] {achado.mensagem}")
     erros = [a for a in achados if a.nivel == ERRO]
     if erros:
         raise ErroDeValidacao(erros)
 
     caminho = salvar_csv(por_ano, NOME_TODOS_ANOS)
-    print(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
-    print(f"Total de linhas: {len(por_ano)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
+    logger.info(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
+    logger.info(f"Total de linhas: {len(por_ano)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
     # Agregado: soma óbitos e desfechos conhecidos de todos os anos (2020-2026, incluindo
     # o ano corrente parcial) numa única taxa por comorbidade. É o que o dashboard usa hoje,
     # antes de existir o filtro de ano.
-    print(f"Agregado (todos os anos somados) salvo em: {salvar_csv(agregado, NOME_AGREGADO)}")
-    print(f"Série semanal ({len(serie_semanal)} semanas) salva em: {salvar_csv(serie_semanal, NOME_SEMANAL)}")
-    print(f"Série semanal por comorbidade ({len(serie_comorbidade)} linhas) salva em: "
+    logger.info(f"Agregado (todos os anos somados) salvo em: {salvar_csv(agregado, NOME_AGREGADO)}")
+    logger.info(f"Série semanal ({len(serie_semanal)} semanas) salva em: {salvar_csv(serie_semanal, NOME_SEMANAL)}")
+    logger.info(f"Série semanal por comorbidade ({len(serie_comorbidade)} linhas) salva em: "
           f"{salvar_csv(serie_comorbidade, NOME_SEMANAL_COMORBIDADE)}")
-    print(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
+    logger.info(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
           f"{salvar_csv(serie_estado, NOME_SEMANAL_ESTADO)}")
-    print(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
+    logger.info(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
           f"{salvar_csv(agregado_estado, NOME_ESTADO)}")
-    print(f"\nCasos de COVID por ano (Parquet, uso futuro, sem precisar rebaixar) em: {PASTA_DETALHADO}")
+    logger.info(f"\nCasos de COVID por ano (Parquet, uso futuro, sem precisar rebaixar) em: {PASTA_DETALHADO}")
     return status
 
 
-if __name__ == "__main__":
-    try:
-        executar_pipeline()
-    except ErroDeValidacao as erro:
-        print(f"\nValidação falhou, nenhum CSV de saída foi gravado:\n{erro}", file=sys.stderr)
-        sys.exit(1)
+def gerar_serie_estado() -> Path:
+    """Regera só a série semanal de casos por estado a partir dos Parquets, sem baixar nem converter."""
+    faltando = _anos_sem_parquet()
+    if faltando:
+        raise ParquetsFaltando(faltando)
+    with abrir_casos(PASTA_DETALHADO, anos=URLS_SRAG) as con:
+        serie = serie_semanal_por_estado(con)
+    caminho = salvar_csv(serie, NOME_SEMANAL_ESTADO)
+    logger.info(f"Série semanal por estado ({len(serie)} linhas) salva em: {caminho}")
+    return caminho
