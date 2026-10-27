@@ -130,7 +130,8 @@ ESCALA_LETALIDADE = ("#134E5E", "#0E8FA8", "#22D3EE", "#A5F3FC")
 CONFIG_PLOTLY = {"displayModeBar": False}
 
 # Estilo do mapa: só um fundo transparente (nenhuma fonte de tiles externa), para o painel aparecer por trás.
-# O endereço das fontes de texto (glyphs) é o mesmo que o estilo "white-bg" do Plotly usa para os números.
+# Os números sobre os estados dependem das fontes de fonts.openmaptiles.org (as mesmas do "white-bg" do Plotly);
+# se o serviço cair, o mapa continua colorido, só sem os números.
 ESTILO_MAPA = {
     "version": 8,
     "sources": {},

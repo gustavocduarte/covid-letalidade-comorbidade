@@ -287,6 +287,10 @@ covid-letalidade-comorbidade/
   em vez de `choropleth` (SVG) ou do Altair — foi a solução encontrada pra um problema de
   renderização de mapas SVG complexos identificado durante o desenvolvimento neste
   ambiente específico.
+- O mapa por estado não usa mapa-base (nenhum serviço de tiles): o estilo é só um fundo transparente
+  (`ESTILO_MAPA` em `config.py`) e o enquadramento é calculado pelos limites do GeoJSON. Só os números
+  sobre os estados dependem de um serviço externo, as fontes de texto de `fonts.openmaptiles.org`; se
+  ele cair, o mapa continua colorido, só sem os números.
 - O campo de tabagismo (`TABAG`) existe no formulário oficial do SIVEP-Gripe, mas não é
   preenchido na prática pelos postos de saúde — por isso não entra na análise.
 - Ferramentas de desenvolvimento (Ruff para lint, pytest para testes) ficam no extra `dev`
