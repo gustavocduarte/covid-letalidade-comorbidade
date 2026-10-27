@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from itertools import product
 
 import duckdb
+import numpy as np
 import pandas as pd
 
 from config import (
@@ -21,6 +22,8 @@ from config import (
     LIMITE_SEM_DESFECHO,
     UFS_VALIDAS,
 )
+
+TOLERANCIA_TAXA = 1e-9  # a taxa publicada é obitos / desfecho_conhecido em ponto flutuante; sobra folga para o arredondamento
 
 ERRO = "erro"
 AVISO = "aviso"
@@ -120,6 +123,18 @@ def validar_casos(estatisticas: dict[int, dict[str, int]]) -> list[Achado]:
     return achados
 
 
+def _taxas_divergentes(df: pd.DataFrame, sufixos: list[str]) -> int:
+    """Linhas cuja taxa publicada difere de óbitos ÷ desfecho conhecido; sem desfecho conhecido a taxa deve ser nula."""
+    divergentes = pd.Series(False, index=df.index)
+    for s in sufixos:
+        desfecho = df[f"desfecho_conhecido{s}"].astype("float64")
+        esperada = (df[f"obitos{s}"] / desfecho.where(desfecho > 0)).astype("float64")  # denominador zero: nula
+        publicada = df[f"taxa_letalidade{s}"].astype("float64")
+        iguais = np.isclose(publicada, esperada, rtol=0, atol=TOLERANCIA_TAXA) | (publicada.isna() & esperada.isna())
+        divergentes |= ~iguais
+    return int(divergentes.sum())
+
+
 def _contagens_inconsistentes(df: pd.DataFrame, sufixos: list[str]) -> int:
     """Linhas em que óbitos > desfechos conhecidos ou desfechos conhecidos > casos."""
     ruins = pd.Series(False, index=df.index)
@@ -164,6 +179,10 @@ def validar_saidas(
         ruins = _contagens_inconsistentes(df, sufixos)
         if ruins:
             erro("CONTAGENS_INCONSISTENTES", ruins, f"Tabela {nome}: {ruins} linhas com óbitos > desfechos > casos.")
+        divergentes = _taxas_divergentes(df, sufixos)
+        if divergentes:
+            erro("TAXA_DIFERE_DO_CALCULO", divergentes,
+                 f"Tabela {nome}: {divergentes} linhas com taxa diferente de óbitos ÷ desfecho conhecido.")
         taxas = df[[c for c in df.columns if c.startswith("taxa_letalidade")]]
         fora = int(((taxas < 0) | (taxas > 1)).sum().sum())
         if fora:
@@ -245,6 +264,10 @@ def _validar_resumo(resumo: pd.DataFrame, estatisticas: dict[int, dict[str, int]
     if incoerentes or fora:
         achados.append(Achado(ERRO, "RESUMO_INCONSISTENTE", None, incoerentes + fora,
                               "Resumo geral com óbitos + curas diferente dos desfechos, desfechos > casos ou taxa fora de [0, 1]."))
+    divergentes = _taxas_divergentes(resumo, [""])
+    if divergentes:
+        achados.append(Achado(ERRO, "TAXA_DIFERE_DO_CALCULO", None, divergentes,
+                              f"Resumo geral: {divergentes} linhas com taxa diferente de óbitos ÷ desfecho conhecido."))
     if int(estado["obitos"].sum()) > int(resumo["obitos"].sum()):
         achados.append(Achado(ERRO, "ESTADO_MAIOR_QUE_RESUMO", None, 1,
                               "Os óbitos por estado passam do total de óbitos do resumo geral."))

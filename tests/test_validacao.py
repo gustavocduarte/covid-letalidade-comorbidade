@@ -220,3 +220,30 @@ def test_grade_incompleta_das_series_vira_erro_mesmo_com_a_soma_igual(saidas_val
 
     assert [(a.nivel, a.codigo) for a in achados] == [(ERRO, codigo)]
 
+
+@pytest.mark.parametrize(("tabela", "coluna"), [
+    ("por_ano", "taxa_letalidade_com"), ("por_ano", "taxa_letalidade_sem"), ("agregado", "taxa_letalidade_com"),
+    ("agregado", "taxa_letalidade_sem"), ("estado", "taxa_letalidade"), ("resumo", "taxa_letalidade"),
+])
+def test_taxa_adulterada_sem_mexer_nas_contagens_e_reprovada(saidas_validas, tabela, coluna):
+    df = saidas_validas["tabelas"][tabela]
+    sufixo = coluna.removeprefix("taxa_letalidade")
+    linha = df[df[f"desfecho_conhecido{sufixo}"] > 0].index[0]
+    adulterada = df.copy()
+    adulterada.loc[linha, coluna] = min(adulterada.loc[linha, coluna] + 0.01, 1.0) if adulterada.loc[linha, coluna] < 1         else adulterada.loc[linha, coluna] - 0.01  # continua em [0, 1]: só o recálculo pega
+
+    achados = _validar(saidas_validas, **{tabela: adulterada})
+
+    assert [(a.nivel, a.codigo) for a in achados] == [(ERRO, "TAXA_DIFERE_DO_CALCULO")]
+
+
+def test_taxa_com_denominador_zero_deve_ser_nula(saidas_validas):
+    resumo = saidas_validas["tabelas"]["resumo"].copy()
+    resumo.loc[0, ["casos", "obitos", "curas", "desfecho_conhecido"]] = 0  # ano sem desfecho conhecido
+    resumo.loc[0, "taxa_letalidade"] = float("nan")
+
+    assert "TAXA_DIFERE_DO_CALCULO" not in {a.codigo for a in _validar(saidas_validas, resumo=resumo)}
+
+    resumo.loc[0, "taxa_letalidade"] = 0.0  # taxa 0 com denominador 0 não existe: tem de ser nula
+    assert "TAXA_DIFERE_DO_CALCULO" in {a.codigo for a in _validar(saidas_validas, resumo=resumo)}
+
