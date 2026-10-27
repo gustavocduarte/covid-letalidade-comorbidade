@@ -204,7 +204,7 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
    grava os CSVs com `load.py`. `cli.py` é a linha de comando que o chama.
 
 **Memória e tamanho.** A conversão e as consultas rodam com o DuckDB limitado a 400 MB
-(o excedente iria para disco temporário). Medido com o pandas como referência:
+(o excedente iria para disco temporário). Medido contra a versão em pandas que o projeto tinha antes:
 
 | | pandas | DuckDB (limite de 400 MB) |
 |---|---|---|
@@ -251,7 +251,6 @@ covid-letalidade-comorbidade/
 │   ├── extract.py              # E do ETL: baixa os CSVs brutos do OpenDataSUS
 │   ├── conversao.py            # T do ETL: CSV bruto -> Parquet só com casos de COVID (DuckDB)
 │   ├── consultas.py            # T do ETL: taxas de letalidade e séries semanais em SQL (DuckDB)
-│   ├── transform.py            # Versão pandas das mesmas contas, mantida como referência dos testes
 │   ├── load.py                 # L do ETL: salva os resultados em data/processed/
 │   ├── config.py               # Caminhos, URLs, colunas e códigos de domínio
 │   ├── validacao.py            # Verificações de qualidade (SQL sobre os Parquets) e relatório
@@ -262,9 +261,8 @@ covid-letalidade-comorbidade/
 │   ├── geo.py                  # Baixa e verifica o contorno dos 27 estados (API do IBGE)
 │   └── dashboard.py            # O dashboard Streamlit em si
 ├── tests/
-│   ├── test_transform.py       # Testes da lógica de transformação (versão pandas)
 │   ├── test_conversao.py       # CSV bruto -> Parquet sobre a amostra sintética
-│   ├── test_consultas.py       # Consultas SQL contra o pandas e contra valores calculados à mão
+│   ├── test_consultas.py       # Consultas SQL contra valores calculados à mão
 │   ├── test_travas.py          # As travas de teste: sem rede e sem escrita em data/
 │   ├── test_validacao.py       # Verificações, invariantes e relatório de qualidade
 │   ├── test_qualidade.py       # Aviso de casos sem estado (lógica e dashboard renderizado)

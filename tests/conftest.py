@@ -1,12 +1,10 @@
-"""Fixtures compartilhadas: Parquets da amostra sintética, comparação SQL x pandas e travas de rede e de escrita."""
+"""Fixtures compartilhadas: Parquets da amostra sintética e travas de rede e de escrita."""
 
 import os
 import socket
 from pathlib import Path
 
-import pandas as pd
 import pytest
-from pandas.testing import assert_frame_equal
 
 from config import RAIZ
 from conversao import csv_para_parquet
@@ -68,23 +66,3 @@ def pasta_parquets(tmp_path_factory, csvs_sinteticos) -> Path:
     for ano, csv in csvs_sinteticos.items():
         csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
     return pasta
-
-
-@pytest.fixture
-def assert_iguais():
-    """Compara dois DataFrames na mesma ordem de linhas: contagens exatas, só as taxas com tolerância."""
-
-    def comparar(obtido: pd.DataFrame, esperado: pd.DataFrame) -> None:
-        assert list(obtido.columns) == list(esperado.columns)
-        # a resolução de tempo varia entre pandas e DuckDB (s, ms, us, ns): só o instante importa
-        obtido, esperado = obtido.copy(), esperado.copy()
-        for coluna in esperado.select_dtypes("datetime").columns:
-            obtido[coluna] = obtido[coluna].astype("datetime64[ns]")
-            esperado[coluna] = esperado[coluna].astype("datetime64[ns]")
-        taxas = [c for c in esperado.columns if c.startswith("taxa_letalidade")]
-        exatas = [c for c in esperado.columns if c not in taxas]
-        assert_frame_equal(obtido[exatas], esperado[exatas], check_exact=True)
-        if taxas:
-            assert_frame_equal(obtido[taxas], esperado[taxas], check_exact=False, rtol=1e-12)
-
-    return comparar

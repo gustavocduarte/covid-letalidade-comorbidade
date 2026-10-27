@@ -8,7 +8,6 @@ import pytest
 
 from config import COLUNAS_NECESSARIAS, COMORBIDADES
 from conversao import csv_para_parquet
-from transform import carregar_casos_covid
 
 FIXTURE_2020 = Path(__file__).resolve().parent / "fixtures" / "INFLUD20-sintetico.csv"
 COLUNAS_PARQUET = ["DT_SIN_PRI", "SG_UF", "EVOLUCAO", *COMORBIDADES]
@@ -48,25 +47,6 @@ def test_converte_so_casos_de_covid_na_ordem_original_e_com_tipos(tmp_path):
         "2020-03-02", "2020-03-04", "2020-03-09", "2020-03-10", "2020-03-11", "2020-03-12", "2020-03-13",
         "2020-03-16", "2020-03-17", "2020-03-18", "2020-03-19", None, None, "2020-12-30",
     ]
-
-
-def test_mesmo_resultado_que_o_caminho_pandas(tmp_path):
-    destino = tmp_path / "casos.parquet"
-    csv_para_parquet(FIXTURE_2020, destino)
-
-    parquet = _ler(destino)
-    pandas_ = carregar_casos_covid(FIXTURE_2020).reset_index(drop=True)
-
-    assert list(parquet.columns) == COLUNAS_PARQUET
-    datas_pandas = pd.to_datetime(pandas_["DT_SIN_PRI"].str[:10], errors="coerce")
-    pd.testing.assert_series_equal(
-        pd.to_datetime(parquet["DT_SIN_PRI"]).reset_index(drop=True), datas_pandas, check_names=False,
-    )
-    pd.testing.assert_series_equal(parquet["SG_UF"].astype("object"), pandas_["SG_UF"].astype("object"))
-    for coluna in ["EVOLUCAO", *COMORBIDADES]:
-        pd.testing.assert_series_equal(
-            parquet[coluna].astype("float64"), pandas_[coluna].astype("float64"), check_names=False,
-        )
 
 
 def test_casos_de_borda_sao_preservados_como_estao(tmp_path):

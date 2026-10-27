@@ -1,7 +1,6 @@
 """Agregações em SQL (DuckDB) sobre os Parquets por ano de casos de COVID.
 
-Cada função devolve um DataFrame com as mesmas colunas e a mesma ordem de linhas da versão
-pandas equivalente em transform.py.
+Cada função devolve um DataFrame já na ordem de saída dos CSVs de data/processed/.
 """
 
 import tempfile
@@ -76,7 +75,7 @@ def _sql_letalidade_por_comorbidade(por_ano: bool) -> str:
         selecao = ("casos_com, obitos_com, desfecho_conhecido_com, casos_sem, obitos_sem, desfecho_conhecido_sem, "
                    f'{taxa("com")}, {taxa("sem")}')
 
-    # INCLUDE NULLS mantém as comorbidades nunca preenchidas (linha com zeros, como no pandas).
+    # INCLUDE NULLS mantém as comorbidades nunca preenchidas (linha com zeros).
     # Por ano, a grade ano x comorbidade também devolve as 11 linhas de zeros de um ano sem casos.
     nomes = ("casos_com", "obitos_com", "desfecho_conhecido_com", "casos_sem", "obitos_sem", "desfecho_conhecido_sem")
     if por_ano:

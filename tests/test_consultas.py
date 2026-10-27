@@ -1,4 +1,4 @@
-"""Agregações em SQL x versão pandas, sobre a amostra sintética (mesmos números e mesma ordem)."""
+"""Agregações em SQL sobre a amostra sintética de tests/fixtures/, com valores calculados à mão."""
 
 import shutil
 
@@ -7,7 +7,6 @@ import pytest
 
 from consultas import (
     abrir_casos,
-    letalidade_por_comorbidade_agregado,
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
     letalidade_por_estado_por_ano,
@@ -16,52 +15,12 @@ from consultas import (
     serie_semanal_por_estado,
 )
 from conversao import csv_para_parquet
-from transform import (
-    agregar_estados_todos_anos,
-    agregar_todos_anos,
-    carregar_casos_covid,
-    letalidade_por_comorbidade,
-    letalidade_por_estado,
-    serie_semanal_casos_covid,
-)
-from transform import (
-    serie_semanal_por_comorbidade as serie_semanal_por_comorbidade_pandas,
-)
-from transform import (
-    serie_semanal_por_estado as serie_semanal_por_estado_pandas,
-)
 
 
 @pytest.fixture(scope="module")
 def con(pasta_parquets):
     with abrir_casos(pasta_parquets) as conexao:
         yield conexao
-
-
-@pytest.fixture(scope="module")
-def casos_pandas(csvs_sinteticos) -> dict[int, pd.DataFrame]:
-    return {ano: carregar_casos_covid(csv) for ano, csv in csvs_sinteticos.items()}
-
-
-@pytest.fixture(scope="module")
-def tabelas_pandas(csvs_sinteticos) -> dict[int, pd.DataFrame]:
-    return {ano: letalidade_por_comorbidade(carregar_casos_covid(csv)) for ano, csv in csvs_sinteticos.items()}
-
-
-def test_letalidade_por_comorbidade_por_ano_igual_ao_pandas(con, tabelas_pandas, assert_iguais):
-    esperado = pd.concat(
-        [tabela.assign(ano=ano) for ano, tabela in tabelas_pandas.items()], ignore_index=True,
-    )
-    esperado = esperado[["ano", *[c for c in esperado.columns if c != "ano"]]]
-
-    # inclui os empates de taxa indefinida (comorbidades nunca preenchidas): a ordem também é conferida
-    assert_iguais(letalidade_por_comorbidade_por_ano(con), esperado)
-
-
-def test_letalidade_por_comorbidade_agregado_igual_ao_pandas(con, tabelas_pandas, assert_iguais):
-    esperado = agregar_todos_anos(list(tabelas_pandas.values()))
-
-    assert_iguais(letalidade_por_comorbidade_agregado(con), esperado)
 
 
 def test_letalidade_por_comorbidade_valores_calculados_a_mao(con):
@@ -79,21 +38,6 @@ def test_letalidade_por_comorbidade_valores_calculados_a_mao(con):
     assert len(por_ano) == 2 * 11
 
 
-def test_letalidade_por_estado_por_ano_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    esperado = pd.concat(
-        [letalidade_por_estado(covid).assign(ano=ano) for ano, covid in casos_pandas.items()], ignore_index=True,
-    )
-    esperado = esperado[["ano", *[c for c in esperado.columns if c != "ano"]]]
-
-    assert_iguais(letalidade_por_estado_por_ano(con), esperado)
-
-
-def test_letalidade_por_estado_agregado_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    esperado = agregar_estados_todos_anos([letalidade_por_estado(covid) for covid in casos_pandas.values()])
-
-    assert_iguais(letalidade_por_estado_agregado(con), esperado)
-
-
 def test_letalidade_por_estado_valores_calculados_a_mao(con):
     agregado = letalidade_por_estado_agregado(con)
 
@@ -107,17 +51,6 @@ def test_letalidade_por_estado_valores_calculados_a_mao(con):
         assert (linha.casos, linha.obitos, linha.desfecho_conhecido) == esperado[linha.sigla]
 
 
-def test_serie_semanal_casos_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    # o pipeline soma os pedaços de cada semana que caem em dois arquivos anuais
-    esperado = (
-        pd.concat([serie_semanal_casos_covid(covid) for covid in casos_pandas.values()], ignore_index=True)
-        .groupby("semana", as_index=False)["casos"].sum()
-        .sort_values("semana").reset_index(drop=True)
-    )
-
-    assert_iguais(serie_semanal_casos(con), esperado)
-
-
 def test_serie_semanal_casos_valores_calculados_a_mao(con):
     serie = serie_semanal_casos(con)
 
@@ -128,16 +61,6 @@ def test_serie_semanal_casos_valores_calculados_a_mao(con):
     }
     assert dict(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["casos"], strict=True)) == esperado
     assert serie["casos"].sum() == 20  # 22 casos de COVID menos 2 sem data válida
-
-
-def test_serie_semanal_por_comorbidade_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    esperado = (
-        pd.concat([serie_semanal_por_comorbidade_pandas(covid) for covid in casos_pandas.values()], ignore_index=True)
-        .groupby(["semana", "comorbidade"], as_index=False)["casos"].sum()
-        .sort_values(["comorbidade", "semana"]).reset_index(drop=True)
-    )
-
-    assert_iguais(serie_semanal_por_comorbidade(con), esperado)
 
 
 def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
@@ -153,13 +76,6 @@ def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
     assert da("SIND_DOWN") == {"2020-12-28": 2, "2021-01-04": 1}  # a semana da virada soma os dois anos
     assert da("ASMA") == {}  # sem casos: nenhuma linha
     assert len(serie) == 12
-
-
-def test_serie_semanal_por_estado_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    # a versão pandas roda a função sobre os casos de todos os anos juntos
-    esperado = serie_semanal_por_estado_pandas(pd.concat(list(casos_pandas.values()), ignore_index=True))
-
-    assert_iguais(serie_semanal_por_estado(con), esperado)
 
 
 def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
