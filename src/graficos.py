@@ -123,22 +123,27 @@ def figura_serie_semanal(
     """Casos por semana no Brasil (área) com, por cima, as comorbidades escolhidas e a marca do início da vacinação.
 
     `por_comorbidade` já vem só com as comorbidades a mostrar, com a coluna `nome` (curto) e `casos` por `semana`.
-    Na escala logarítmica as semanas sem caso saem do gráfico (o log de zero não existe).
+    Na escala logarítmica o zero não existe: as semanas sem caso ficam como ponto vazio (a linha quebra ali) e
+    cada ponto ganha um marcador pequeno, para um valor isolado entre dois vazios não sumir.
     """
     logaritmica = escala == "Logarítmica"
+    modo = "lines+markers" if logaritmica else "lines"
+
+    def casos(tabela: pd.DataFrame) -> pd.Series:
+        return tabela["casos"].where(tabela["casos"] > 0) if logaritmica else tabela["casos"]
+
     figura = go.Figure()
     total = semanal.sort_values("semana")
     figura.add_trace(go.Scatter(
-        x=total["semana"], y=total["casos"], mode="lines", name="Brasil", fill="tozeroy" if not logaritmica else None,
+        x=total["semana"], y=casos(total), mode=modo, marker={"size": 3, "color": COR_PRINCIPAL}, name="Brasil",
+        fill="tozeroy" if not logaritmica else None,
         line={"color": COR_PRINCIPAL, "width": 2}, fillcolor="rgba(34,211,238,0.12)",
         hovertemplate="Brasil: %{y:,} casos<extra></extra>",
     ))
     for cor, (nome, grupo) in zip(SEQUENCIA_CORES_SERIES, por_comorbidade.groupby("nome"), strict=False):
         grupo = grupo.sort_values("semana")
-        if logaritmica:
-            grupo = grupo[grupo["casos"] > 0]
         figura.add_trace(go.Scatter(
-            x=grupo["semana"], y=grupo["casos"], mode="lines", name=nome, line={"color": cor, "width": 2},
+            x=grupo["semana"], y=casos(grupo), mode=modo, marker={"size": 3, "color": cor}, name=nome, line={"color": cor, "width": 2},
             hovertemplate=nome + ": %{y:,} casos<extra></extra>",
         ))
     figura.add_shape(

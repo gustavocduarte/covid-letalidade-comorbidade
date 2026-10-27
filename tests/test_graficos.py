@@ -266,3 +266,22 @@ def test_numeros_do_mapa_sao_brancos_com_sombra_escura_em_dois_tamanhos():
     assert {t.textfont.size for t in textos} == {TAMANHO_ROTULO_ESTADO, TAMANHO_ROTULO_ESTADO_PEQUENO} == {10, 9}
     assert all(t.textfont.color == COR_ROTULO_MAPA == "#FFFFFF" for t in textos)
     assert all(t.textfont.shadow == SOMBRA_ROTULO_MAPA for t in textos)
+
+
+def test_escala_logaritmica_deixa_as_semanas_sem_caso_como_ponto_vazio_e_a_linear_mantem_o_zero():
+    import math
+
+    from graficos import figura_serie_semanal
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()  # a primeira semana tem casos = 0 em todas as séries
+    inicio = pd.Timestamp("2021-01-17")
+
+    linear = figura_serie_semanal(semanal, por_comorbidade, inicio, "Linear")
+    log = figura_serie_semanal(semanal, por_comorbidade, inicio, "Logarítmica")
+
+    assert [len(t.x) for t in log.data] == [len(t.x) for t in linear.data] == [4, 4, 4]  # nenhuma semana some
+    assert all(t.y[0] == 0 for t in linear.data)
+    assert all(math.isnan(t.y[0]) for t in log.data)
+    assert [list(t.y[1:]) for t in log.data] == [list(t.y[1:]) for t in linear.data]  # o resto é igual
+    assert all(t.mode == "lines+markers" for t in log.data) and all(t.mode == "lines" for t in linear.data)
+
