@@ -14,10 +14,12 @@ from config import (
     COR_FUNDO_PAGINA,
     COR_PRINCIPAL,
     COR_SEM_COMORBIDADE,
+    COR_TEXTO,
     ESCALA_LETALIDADE,
     GRADE_ESTADOS,
+    LIMITES_DO_MAPA,
+    ROTULOS_FORA_DO_ESTADO,
     SEQUENCIA_CORES_SERIES,
-    SIGLAS_SEM_NUMERO_NO_MAPA,
 )
 from formatacao import fmt_decimal, fmt_inteiro, fmt_pontos
 from indicadores import COR_DA_CLASSE, classe_da_diferenca
@@ -177,18 +179,42 @@ def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
         colorbar={"title": {"text": TITULO_ESCALA_LETALIDADE}, "thickness": 10},
     ))
     # textfont.color só aceita uma cor por camada: um grupo de rótulos para cada cor.
-    com_rotulo = estados[~estados["sigla"].isin(SIGLAS_SEM_NUMERO_NO_MAPA)]
-    for cor, grupo in com_rotulo.groupby("cor_rotulo"):
+    dentro = estados[~estados["sigla"].isin(ROTULOS_FORA_DO_ESTADO)]
+    for cor, grupo in dentro.groupby("cor_rotulo"):
         figura.add_trace(go.Scattergeo(
             lat=grupo["lat_centro"], lon=grupo["lon_centro"], mode="text", text=grupo["casos_fmt"],
             textfont={"size": TAMANHO_ROTULO_MAPA, "color": cor}, hoverinfo="skip", showlegend=False,
         ))
+    figura.add_traces(_rotulos_fora_do_estado(estados))
     aplicar_template_grafico(figura)
     figura.update_geos(
-        fitbounds="locations", visible=False, projection_type="mercator", bgcolor="rgba(0,0,0,0)",
+        lonaxis_range=list(LIMITES_DO_MAPA["lon"]), lataxis_range=list(LIMITES_DO_MAPA["lat"]), visible=False,
+        projection_type="mercator", bgcolor="rgba(0,0,0,0)",
     )
     figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
     return figura
+
+
+def _rotulos_fora_do_estado(estados: pd.DataFrame) -> list[go.Scattergeo]:
+    """Linhas finas do centro de cada estado pequeno até o número de casos, que fica numa posição fixa fora dele."""
+    fora = estados[estados["sigla"].isin(ROTULOS_FORA_DO_ESTADO)]
+    lon_linha, lat_linha, lon_texto, lat_texto = [], [], [], []
+    for estado in fora.itertuples():
+        lon, lat = ROTULOS_FORA_DO_ESTADO[estado.sigla]
+        lon_linha += [estado.lon_centro, lon, None]
+        lat_linha += [estado.lat_centro, lat, None]
+        lon_texto.append(lon)
+        lat_texto.append(lat)
+    return [
+        go.Scattergeo(
+            lon=lon_linha, lat=lat_linha, mode="lines", line={"color": COR_EIXO, "width": 0.8},
+            hoverinfo="skip", showlegend=False,
+        ),
+        go.Scattergeo(
+            lon=lon_texto, lat=lat_texto, mode="text", text=fora["casos_fmt"], textposition="middle right",
+            textfont={"size": TAMANHO_ROTULO_MAPA, "color": COR_TEXTO}, hoverinfo="skip", showlegend=False,
+        ),
+    ]
 
 
 def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:

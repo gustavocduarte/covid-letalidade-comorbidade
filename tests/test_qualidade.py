@@ -7,7 +7,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
-from config import PAGINAS, SIGLAS_SEM_NUMERO_NO_MAPA
+from config import LIMITES_DO_MAPA, PAGINAS, ROTULOS_FORA_DO_ESTADO
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
@@ -102,14 +102,18 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     tipos = {t["type"] for t in mapas[0]["data"]}
     assert tipos == {"choropleth", "scattergeo"}
     assert "map" not in mapas[0]["layout"] and "mapbox" not in mapas[0]["layout"]
-    assert mapas[0]["layout"]["geo"]["fitbounds"] == "locations"
+    geo = mapas[0]["layout"]["geo"]
+    assert geo["lonaxis"]["range"] == list(LIMITES_DO_MAPA["lon"])
+    assert geo["lataxis"]["range"] == list(LIMITES_DO_MAPA["lat"])
 
 
-def test_mapa_de_estados_deixa_sem_numero_so_os_estados_pequenos():
+def test_mapa_de_estados_mostra_os_27_numeros_e_os_8_pequenos_ficam_fora_dos_estados():
     tela = _tela_de_tempo()
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
     mapa = next(m for m in mapas if any(t["type"] == "choropleth" for t in m["data"]))
 
-    numeros = [n for t in mapa["data"] if t["type"] == "scattergeo" for n in t["text"]]
-    assert len(numeros) == 27 - len(SIGLAS_SEM_NUMERO_NO_MAPA)
-    assert "665.970" in numeros  # São Paulo tem número
+    textos = [t for t in mapa["data"] if t["type"] == "scattergeo" and t.get("mode") == "text"]
+    numeros = [n for t in textos for n in t["text"]]
+    assert len(numeros) == 27 and "665.970" in numeros  # São Paulo tem número
+    fora = textos[-1]  # o último grupo são os números nas posições fixas, fora dos estados
+    assert sorted(zip(fora["lon"], fora["lat"], strict=True)) == sorted(ROTULOS_FORA_DO_ESTADO.values())

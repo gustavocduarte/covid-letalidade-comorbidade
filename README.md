@@ -323,11 +323,12 @@ covid-letalidade-comorbidade/
 ## Notas técnicas
 
 - O mapa por estado é um `go.Choropleth` do Plotly (vetorial, SVG), sem mapa-base, sem serviço de tiles e
-  sem nenhuma fonte externa: o enquadramento é automático (`fitbounds`) e acompanha a largura do painel.
-  O GeoJSON do IBGE traz o anel externo no sentido anti-horário (RFC 7946); o Plotly (d3-geo) lê isso
-  como "o globo inteiro menos o estado" e pinta um retângulo, então `geojson_para_plotly` (`src/mapa.py`)
-  reorienta os anéis antes de desenhar. Os números de casos ficam sobre os estados em que cabem; nos
-  pequenos (`SIGLAS_SEM_NUMERO_NO_MAPA`) o valor aparece só no hover.
+  sem nenhuma fonte externa. Os limites são fixos (`LIMITES_DO_MAPA`: o Brasil mais uma faixa de mar), e o
+  Plotly ajusta o desenho à largura do painel. O GeoJSON do IBGE traz o anel externo no sentido anti-horário
+  (RFC 7946); o Plotly (d3-geo) lê isso como "o globo inteiro menos o estado" e pinta um retângulo, então
+  `geojson_para_plotly` (`src/mapa.py`) reorienta os anéis antes de desenhar. O número de casos fica sobre
+  cada estado; nos 8 pequenos (`ROTULOS_FORA_DO_ESTADO`) ele fica numa posição fixa, no mar ou ao lado, ligado
+  ao estado por uma linha fina.
 - O campo de tabagismo (`TABAG`) existe no formulário oficial do SIVEP-Gripe, mas não é
   preenchido na prática pelos postos de saúde — por isso não entra na análise.
 - Ferramentas de desenvolvimento (Ruff para lint, pytest para testes) ficam no extra `dev`
