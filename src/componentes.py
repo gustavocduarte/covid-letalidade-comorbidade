@@ -2,6 +2,7 @@
 
 from html import escape
 
+import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
@@ -13,6 +14,7 @@ from config import (
     COR_TEXTO,
     SEQUENCIA_CORES_SERIES,
 )
+from datas import marcas_de_data
 
 
 def aplicar_template_grafico(figura: go.Figure) -> go.Figure:
@@ -28,6 +30,13 @@ def aplicar_template_grafico(figura: go.Figure) -> go.Figure:
     )
     figura.update_xaxes(gridcolor=COR_GRADE, zerolinecolor=COR_GRADE, linecolor=COR_BORDA)
     figura.update_yaxes(gridcolor=COR_GRADE, zerolinecolor=COR_GRADE, linecolor=COR_BORDA)
+    return figura
+
+
+def aplicar_eixo_de_datas(figura: go.Figure, inicio: pd.Timestamp, fim: pd.Timestamp) -> go.Figure:
+    """Eixo x de datas com os meses em português ("abr/21"), sem depender de arquivo de idioma do Plotly."""
+    posicoes, textos = marcas_de_data(inicio, fim)
+    figura.update_xaxes(tickmode="array", tickvals=posicoes, ticktext=textos, range=[inicio, fim])
     return figura
 
 

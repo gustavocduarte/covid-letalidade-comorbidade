@@ -1,6 +1,7 @@
 """Figuras do dashboard: o que cada gráfico mostra, sem abrir a tela."""
 
 import pandas as pd
+import plotly.graph_objects as go
 import pytest
 
 from config import (
@@ -109,3 +110,18 @@ def test_dumbbell_rotulos_da_diferenca_ficam_fora_da_area_dos_pontos():
 
     assert all(a.xref == "paper" and a.x == 1 and a.xanchor == "left" and a.xshift > 0 for a in figura.layout.annotations)
     assert figura.layout.margin.r >= 90  # espaço para o texto mais largo, "+16,4 p.p."
+
+
+def test_template_usa_virgula_decimal_e_ponto_nos_milhares():
+    from componentes import aplicar_template_grafico
+
+    assert aplicar_template_grafico(go.Figure()).layout.separators == ",."
+
+
+def test_eixo_de_datas_usa_meses_em_portugues():
+    from componentes import aplicar_eixo_de_datas
+
+    figura = aplicar_eixo_de_datas(go.Figure(), pd.Timestamp("2020-02-10"), pd.Timestamp("2026-08-24"))
+
+    assert list(figura.layout.xaxis.ticktext)[:3] == ["jul/20", "jan/21", "jul/21"]
+    assert figura.layout.xaxis.tickmode == "array"
