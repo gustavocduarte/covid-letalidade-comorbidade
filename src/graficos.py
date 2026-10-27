@@ -13,11 +13,13 @@ from config import (
     COR_EIXO,
     COR_FUNDO_PAGINA,
     COR_PRINCIPAL,
+    COR_ROTULO_MAPA,
     COR_SEM_COMORBIDADE,
     ESCALA_LETALIDADE,
     GRADE_ESTADOS,
     SEQUENCIA_CORES_SERIES,
     SIGLAS_DE_ESTADOS_PEQUENOS,
+    SOMBRA_ROTULO_MAPA,
     TAMANHO_ROTULO_ESTADO,
     TAMANHO_ROTULO_ESTADO_PEQUENO,
 )
@@ -177,12 +179,15 @@ def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
         marker={"line": {"color": COR_FUNDO_PAGINA, "width": 0.8}},
         colorbar={"title": {"text": TITULO_ESCALA_LETALIDADE}, "thickness": 10},
     ))
-    # textfont só aceita uma cor e um tamanho por camada: um grupo de rótulos para cada combinação.
+    # textfont só aceita um tamanho por camada: um grupo de rótulos para cada tamanho.
     estados = estados.assign(pequeno=estados["sigla"].isin(SIGLAS_DE_ESTADOS_PEQUENOS))
-    for (cor, pequeno), grupo in estados.groupby(["cor_rotulo", "pequeno"]):
+    for pequeno, grupo in estados.groupby("pequeno"):
         figura.add_trace(go.Scattergeo(
             lat=grupo["lat_centro"], lon=grupo["lon_centro"], mode="text", text=grupo["casos_fmt"],
-            textfont={"size": TAMANHO_ROTULO_ESTADO_PEQUENO if pequeno else TAMANHO_ROTULO_ESTADO, "color": cor},
+            textfont={
+                "size": TAMANHO_ROTULO_ESTADO_PEQUENO if pequeno else TAMANHO_ROTULO_ESTADO,
+                "color": COR_ROTULO_MAPA, "shadow": SOMBRA_ROTULO_MAPA,
+            },
             hoverinfo="skip", showlegend=False,
         ))
     aplicar_template_grafico(figura)

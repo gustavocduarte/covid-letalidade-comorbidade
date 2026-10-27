@@ -253,3 +253,16 @@ def test_estados_pequenos_sao_os_8_do_litoral_e_o_df():
 
     assert set(SIGLAS_DE_ESTADOS_PEQUENOS) == {"RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF"}
     assert TAMANHO_ROTULO_ESTADO_PEQUENO < TAMANHO_ROTULO_ESTADO
+
+
+def test_numeros_do_mapa_sao_brancos_com_sombra_escura_em_dois_tamanhos():
+    from config import COR_ROTULO_MAPA, SOMBRA_ROTULO_MAPA, TAMANHO_ROTULO_ESTADO, TAMANHO_ROTULO_ESTADO_PEQUENO
+    from graficos import figura_mapa_estados
+
+    with open(CAMINHO_GEOJSON, encoding="utf-8") as f:
+        figura = figura_mapa_estados(_estados(), json.load(f))
+
+    textos = [t for t in figura.data if t.type == "scattergeo"]
+    assert {t.textfont.size for t in textos} == {TAMANHO_ROTULO_ESTADO, TAMANHO_ROTULO_ESTADO_PEQUENO} == {10, 9}
+    assert all(t.textfont.color == COR_ROTULO_MAPA == "#FFFFFF" for t in textos)
+    assert all(t.textfont.shadow == SOMBRA_ROTULO_MAPA for t in textos)

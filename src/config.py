@@ -227,5 +227,8 @@ ESTADOS_COMPARADOS_INICIAIS = ("MG", "RJ", "SP")
 MAXIMO_ESTADOS_COMPARADOS = 6
 # Estados pequenos, onde o número de casos tem fonte menor para não embolar sem zoom.
 SIGLAS_DE_ESTADOS_PEQUENOS = ("RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF")
-TAMANHO_ROTULO_ESTADO = 8
-TAMANHO_ROTULO_ESTADO_PEQUENO = 7
+TAMANHO_ROTULO_ESTADO = 10
+TAMANHO_ROTULO_ESTADO_PEQUENO = 9
+# Números do mapa: sempre brancos, com sombra escura curta para ler sobre qualquer tom da escala.
+COR_ROTULO_MAPA = "#FFFFFF"
+SOMBRA_ROTULO_MAPA = "0 0 2px #000, 0 0 2px #000, 1px 1px 2px #000"
