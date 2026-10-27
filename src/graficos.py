@@ -220,3 +220,32 @@ def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:
     figura.update_yaxes(visible=False, autorange="reversed", scaleanchor="x")
     figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
     return figura
+
+
+def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -> go.Figure:
+    """Uma linha por estado com os casos semanais em % do pico do próprio estado (de `normalizar_pelo_pico`).
+
+    As cores seguem a ordem alfabética das siglas marcadas.
+    """
+    figura = go.Figure()
+    for cor, (sigla, grupo) in zip(SEQUENCIA_CORES_SERIES, curvas.groupby("sigla"), strict=False):
+        grupo = grupo.sort_values("semana")
+        figura.add_trace(go.Scatter(
+            x=grupo["semana"], y=grupo["pct_do_pico"], mode="lines", name=nomes_estados[sigla],
+            line={"color": cor, "width": 2}, customdata=grupo["casos"],
+            hovertemplate=(
+                f"<b>{nomes_estados[sigla]}</b><br>%{{x|%d/%m/%Y}}<br>%{{y:.0f}}% do pico"
+                "<br>%{customdata:,} casos<extra></extra>"
+            ),
+        ))
+    aplicar_template_grafico(figura)
+    aplicar_eixo_de_datas(figura, curvas["semana"].min(), curvas["semana"].max())
+    figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
+    figura.update_yaxes(
+        range=[0, 105], ticksuffix="%", tickvals=[0, 25, 50, 75, 100], tickfont={"color": COR_EIXO, "size": 10},
+    )
+    figura.update_layout(
+        height=ALTURA_SERIE_PX, margin={"l": 10, "r": 10, "t": 10, "b": 30}, hovermode="x unified",
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0, "font": {"size": 12}},
+    )
+    return figura

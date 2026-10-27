@@ -3,7 +3,7 @@
 import pandas as pd
 
 from config import DATA_INICIO_VACINACAO
-from indicadores_tempo import kpis_tempo, resumo_por_estado
+from indicadores_tempo import kpis_tempo, normalizar_pelo_pico, resumo_por_estado
 
 NOMES = {"AA": "Alfa", "BB": "Beta", "CC": "Gama"}
 
@@ -47,3 +47,11 @@ def test_kpi_da_cauda_resume_quando_muitos_estados_empatam():
     semanal = pd.DataFrame({"semana": pd.to_datetime(["2021-03-08"]), "casos": [1]})
 
     assert kpis_tempo(semanal, resumo)[2].linha == "5 estados empatados"
+
+
+def test_normalizar_pelo_pico_poe_o_pico_de_cada_estado_em_100():
+    curvas = normalizar_pelo_pico(_semanal_estado())
+
+    por_estado = curvas.groupby("sigla")["pct_do_pico"]
+    assert por_estado.max().tolist() == [100, 100, 100]
+    assert curvas.loc[(curvas["sigla"] == "AA") & (curvas["casos"] == 50), "pct_do_pico"].iloc[0] == 50

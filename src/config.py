@@ -226,3 +226,6 @@ GRADE_ESTADOS = {
     "RS": (3, 6),
 }
 TIPOS_DE_MAPA = ("Mapa", "Blocos")
+# Estados já marcados ao comparar as curvas, e o máximo que cabe nas cores da paleta de séries.
+ESTADOS_COMPARADOS_INICIAIS = ("MG", "RJ", "SP")
+MAXIMO_ESTADOS_COMPARADOS = 6

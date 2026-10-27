@@ -154,3 +154,18 @@ def test_estados_alternam_entre_mapa_e_blocos():
     tela = alternador.set_value("Blocos").run()
 
     assert not tela.exception and "heatmap" in tipos(tela) and "choroplethmap" not in tipos(tela)
+
+
+def test_curvas_por_estado_abrem_com_mg_rj_sp_e_acompanham_a_escolha():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    seletor = next(m for m in tela.multiselect if m.label == "Comparar estados")
+    assert seletor.value == ["Minas Gerais", "Rio de Janeiro", "São Paulo"]
+    assert seletor.proto.max_selections == 6
+
+    tela = seletor.unselect("Rio de Janeiro").run()
+
+    curvas = [t["name"] for g in tela.get("plotly_chart") for t in json.loads(g.proto.spec)["data"]
+              if t.get("name") in {"Minas Gerais", "Rio de Janeiro", "São Paulo"}]
+    assert not tela.exception and curvas == ["Minas Gerais", "São Paulo"]

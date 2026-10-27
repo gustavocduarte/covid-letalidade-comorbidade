@@ -2,7 +2,6 @@
 
 import json
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -14,15 +13,21 @@ from config import (
     CAMINHO_SEMANAL_COMORBIDADE,
     CAMINHO_SEMANAL_ESTADO,
     COMORBIDADES_SOBREPOSTAS_INICIAIS,
-    COR_GRADE,
-    COR_TEXTO,
     DATA_INICIO_VACINACAO,
+    ESTADOS_COMPARADOS_INICIAIS,
     MAXIMO_COMORBIDADES_SOBREPOSTAS,
+    MAXIMO_ESTADOS_COMPARADOS,
     NOMES_CURTOS_COMORBIDADES,
     TIPOS_DE_MAPA,
 )
-from graficos import ESCALAS_SERIE, figura_blocos_estados, figura_mapa_estados, figura_serie_semanal
-from indicadores_tempo import kpis_tempo, preparar_estados, resumo_por_estado
+from graficos import (
+    ESCALAS_SERIE,
+    figura_blocos_estados,
+    figura_curvas_estados,
+    figura_mapa_estados,
+    figura_serie_semanal,
+)
+from indicadores_tempo import kpis_tempo, normalizar_pelo_pico, preparar_estados, resumo_por_estado
 from qualidade import aviso_casos_sem_estado
 
 # Referência temporal no gráfico da linha do tempo, sem implicar relação de causa e efeito.
@@ -94,64 +99,30 @@ with st.container(border=True, key="painel_estados"):
         '"Mapa" mostra o formato real do Brasil; "Blocos" dá o mesmo tamanho a cada estado, com sigla e letalidade legíveis.'
     )
 
-with st.container(border=True):
-    st.subheader("Casos de COVID por estado ao longo do tempo")
-    st.caption(
-        "Cada linha é normalizada em relação ao próprio pico do estado (0% a 100%) — "
-        "assim dá pra comparar o formato/tempo da curva entre estados, sem o volume "
-        "bruto (que sempre favoreceria estados mais populosos, como São Paulo)."
+_nome_para_sigla = {nome: sigla for sigla, nome in nomes_estados.items()}
+_curvas = normalizar_pelo_pico(df_semanal_estado)
+
+with st.container(border=True, key="painel_curvas"):
+    titulo_painel(
+        "Curva por estado · % do próprio pico",
+        "Cada linha vai de 0% a 100% do pico do próprio estado, para comparar o formato e o momento das ondas "
+        "sem o volume favorecer estados populosos.",
     )
-
-    df_semanal_estado["nome"] = df_semanal_estado["sigla"].map(nomes_estados)
-
-    # Normaliza cada estado em relação ao seu próprio pico (0-100%), não ao volume bruto.
-    picos_por_estado = df_semanal_estado.groupby("sigla")["casos"].transform("max")
-    df_semanal_estado["casos_pct_pico"] = df_semanal_estado["casos"] / picos_por_estado * 100
-
-    nomes_para_sigla = {v: k for k, v in nomes_estados.items()}
-
-    # Começa com os 3 estados de mais casos já marcados, pra não abrir com o gráfico vazio.
-    top3_siglas = _estados.sort_values("casos", ascending=False)["sigla"].head(3).tolist()
-    default_nomes = [nomes_estados[sigla] for sigla in top3_siglas]
-
-    estados_selecionados = st.pills(
-        "Comparar estados:",
-        options=sorted(nomes_estados.values()),
-        selection_mode="multi",
-        default=default_nomes,
-        key="pills_estados_tempo",
+    estados_marcados = st.multiselect(
+        "Comparar estados",
+        sorted(nomes_estados.values()),
+        default=sorted(nomes_estados[s] for s in ESTADOS_COMPARADOS_INICIAIS),
+        max_selections=MAXIMO_ESTADOS_COMPARADOS,
+        placeholder="Escolha até 6 estados",
     )
-
-    if estados_selecionados:
-        siglas_selecionadas = [nomes_para_sigla[nome] for nome in estados_selecionados]
-        df_filtrado_estado = df_semanal_estado[df_semanal_estado["sigla"].isin(siglas_selecionadas)]
-
-        linhas_estado = alt.Chart(df_filtrado_estado).mark_line(strokeWidth=2).encode(
-            x=alt.X("semana:T", title=None,
-                    axis=alt.Axis(labelColor=COR_TEXTO, titleColor=COR_TEXTO, gridColor=COR_GRADE)),
-            y=alt.Y("casos_pct_pico:Q", title="% do pico do próprio estado",
-                    axis=alt.Axis(labelColor=COR_TEXTO, titleColor=COR_TEXTO, gridColor=COR_GRADE)),
-            color=alt.Color(
-                "nome:N",
-                scale=alt.Scale(scheme="tableau10"),
-                legend=alt.Legend(title=None, labelColor=COR_TEXTO, orient="top"),
-            ),
-            tooltip=[
-                alt.Tooltip("nome:N", title="Estado"),
-                alt.Tooltip("semana:T", title="Semana"),
-                alt.Tooltip("casos:Q", title="Casos", format=","),
-                alt.Tooltip("casos_pct_pico:Q", title="% do pico", format=".0f"),
-            ],
-        )
-        grafico_estado_tempo = (
-            linhas_estado
-            .properties(height=380, background="transparent")
-            .configure_view(strokeWidth=0)
-        )
-        st.altair_chart(grafico_estado_tempo, width="stretch")
+    if estados_marcados:
+        exibir_grafico(figura_curvas_estados(
+            _curvas[_curvas["sigla"].isin(_nome_para_sigla[n] for n in estados_marcados)], nomes_estados,
+        ))
     else:
-        st.info("Selecione pelo menos um estado pra ver o gráfico.")
+        st.info("Selecione pelo menos um estado para ver o gráfico.")
 
+with st.container(border=True, key="painel_cauda"):
     st.markdown("**Pico e duração da cauda, por estado**")
     st.caption(
         "\"Semanas até cair pra <10% do pico\" conta quantas semanas, depois do pico, o "

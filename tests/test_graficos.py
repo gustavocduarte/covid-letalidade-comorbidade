@@ -196,3 +196,17 @@ def test_mapa_dos_estados_colore_os_27_estados_pela_letalidade():
         figura = figura_mapa_estados(_estados(), json.load(f))
 
     assert figura.data[0].type == "choroplethmap" and len(figura.data[0].locations) == 27
+
+
+def test_curvas_dos_estados_tem_uma_linha_por_estado_em_percentual_do_pico():
+    from graficos import figura_curvas_estados
+    from indicadores_tempo import normalizar_pelo_pico
+
+    semanas = pd.date_range("2021-01-04", periods=3, freq="7D")
+    semanal = pd.DataFrame({"semana": list(semanas) * 2, "sigla": ["SP"] * 3 + ["MG"] * 3, "casos": [10, 40, 20, 5, 5, 1]})
+
+    figura = figura_curvas_estados(normalizar_pelo_pico(semanal), {"SP": "São Paulo", "MG": "Minas Gerais"})
+
+    assert [t.name for t in figura.data] == ["Minas Gerais", "São Paulo"]
+    assert list(figura.data[1].y) == [25, 100, 50]
+    assert figura.layout.yaxis.ticksuffix == "%"

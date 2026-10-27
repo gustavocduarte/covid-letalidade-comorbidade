@@ -79,3 +79,10 @@ def preparar_estados(estado: pd.DataFrame, geojson: dict) -> pd.DataFrame:
         lambda v: cor_texto_contraste(v, menor, maior, ESCALA_LETALIDADE, "#FFFFFF", COR_FUNDO_PAGINA)
     )
     return df
+
+
+def normalizar_pelo_pico(semanal_estado: pd.DataFrame) -> pd.DataFrame:
+    """Acrescenta `pct_do_pico`: os casos de cada semana em % do maior valor semanal do próprio estado (0 a 100)."""
+    df = semanal_estado.copy()
+    df["pct_do_pico"] = df["casos"] / df.groupby("sigla")["casos"].transform("max") * 100
+    return df
