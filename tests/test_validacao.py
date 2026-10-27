@@ -16,32 +16,12 @@ from consultas import (
     serie_semanal_por_comorbidade,
     serie_semanal_por_estado,
 )
-from conversao import csv_para_parquet
 from validacao import AVISO, ERRO, estatisticas_por_ano, montar_relatorio, validar_casos, validar_saidas
 
 CAMPOS_ZERADOS = {
     "linhas": 0, "sem_uf": 0, "uf_invalida": 0, "sem_data": 0, "data_fora_janela": 0, "sem_desfecho": 0,
     "evolucao_invalida": 0, "comorbidade_invalida": 0, "fora_da_serie_estado": 0,
 }
-
-
-@pytest.fixture
-def parquet_de_casos(tmp_path, csvs_sinteticos):
-    """Cria ano=AAAA/casos.parquet a partir de linhas (dicts com as colunas a mudar; o resto é um caso padrão)."""
-    cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
-    colunas = cabecalho.split(";")
-    padrao = {c: "" for c in colunas} | {"DT_SIN_PRI": "{ano}-06-10T00:00:00.000Z", "SG_UF": "SP",
-                                          "CLASSI_FIN": "5", "EVOLUCAO": "1", "DIABETES": "1"}
-    pasta = tmp_path / "detalhado"
-
-    def criar(ano: int, linhas: list[dict]) -> None:
-        corpo = [";".join((padrao | linha)[c].replace("{ano}", str(ano)) for c in colunas) for linha in linhas]
-        csv = tmp_path / f"INFLUD{ano}.csv"
-        csv.write_text("\n".join([cabecalho, *corpo]) + "\n", encoding="utf-8")
-        csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
-
-    criar.pasta = pasta
-    return criar
 
 
 def _estatisticas(pasta, anos):
@@ -169,7 +149,8 @@ def _com(df, mascara, coluna, valor):
      lambda df: _com(df, lambda d: d["comorbidade"] == "DIABETES", "casos_sem", 100)),
     ("ESTADO_DIFERE_DOS_CASOS", "estado", lambda df: df.iloc[1:]),
     ("SERIE_SEMANAL_DIFERE_DOS_CASOS", "serie_semanal", lambda df: _com(df, lambda d: d.index == 0, "casos", 50)),
-    ("SERIE_ESTADO_DIFERE_DOS_CASOS", "serie_estado", lambda df: df.iloc[:-1]),
+    ("SERIE_ESTADO_DIFERE_DOS_CASOS", "serie_estado",
+     lambda df: df.drop(df[df["casos"] > 0].index[-1])),  # remove uma linha com casos > 0 (a soma muda)
     ("RESUMO_DIFERE_DOS_CASOS", "resumo", lambda df: _com(df, lambda d: d["ano"] == 2020, "casos", 99)),
     ("RESUMO_INCONSISTENTE", "resumo", lambda df: _com(df, lambda d: d["ano"] == 2021, "obitos", 99)),
     ("ESTADO_MAIOR_QUE_RESUMO", "estado", lambda df: _com(df, lambda d: d.index == 0, "obitos", 999)),

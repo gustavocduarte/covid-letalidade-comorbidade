@@ -66,3 +66,22 @@ def pasta_parquets(tmp_path_factory, csvs_sinteticos) -> Path:
     for ano, csv in csvs_sinteticos.items():
         csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
     return pasta
+
+
+@pytest.fixture
+def parquet_de_casos(tmp_path, csvs_sinteticos):
+    """Cria ano=AAAA/casos.parquet a partir de linhas (dicts com as colunas a mudar; o resto é um caso padrão)."""
+    cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
+    colunas = cabecalho.split(";")
+    padrao = {c: "" for c in colunas} | {"DT_SIN_PRI": "{ano}-06-10T00:00:00.000Z", "SG_UF": "SP",
+                                          "CLASSI_FIN": "5", "EVOLUCAO": "1", "DIABETES": "1"}
+    pasta = tmp_path / "detalhado"
+
+    def criar(ano: int, linhas: list[dict]) -> None:
+        corpo = [";".join((padrao | linha)[c].replace("{ano}", str(ano)) for c in colunas) for linha in linhas]
+        csv = tmp_path / f"INFLUD{ano}.csv"
+        csv.write_text("\n".join([cabecalho, *corpo]) + "\n", encoding="utf-8")
+        csv_para_parquet(csv, pasta / f"ano={ano}" / "casos.parquet")
+
+    criar.pasta = pasta
+    return criar

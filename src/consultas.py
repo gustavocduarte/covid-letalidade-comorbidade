@@ -146,42 +146,70 @@ def letalidade_por_estado_agregado(con: duckdb.DuckDBPyConnection) -> pd.DataFra
     return con.execute(_sql_letalidade_por_estado(por_ano=False)).df()
 
 
+# Todas as segundas-feiras da primeira à última semana com data válida (a série nacional): é a grade das três séries
+# semanais, para uma semana sem casos aparecer com casos = 0 em vez de sumir.
+_SQL_SEMANAS = """semanas AS (
+            SELECT unnest(generate_series(lo, hi, INTERVAL 7 DAY))::DATE AS semana
+            FROM (SELECT min(date_trunc('week', DT_SIN_PRI))::DATE AS lo, max(date_trunc('week', DT_SIN_PRI))::DATE AS hi
+                  FROM casos WHERE DT_SIN_PRI IS NOT NULL)
+        )"""
+
+
 def serie_semanal_casos(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Casos de COVID por semana de início dos sintomas (semana começa na segunda-feira).
+    """Casos de COVID por semana de início dos sintomas (semana começa na segunda-feira), sem lacunas.
 
     Soma os anos direto, então os dois pedaços de uma semana na virada do ano já saem juntos.
-    Casos sem data válida ficam de fora.
+    Casos sem data válida ficam de fora; semanas sem casos entre a primeira e a última saem com casos = 0.
     """
-    return con.execute("""
-        SELECT date_trunc('week', DT_SIN_PRI) AS semana, count(*) AS casos
-        FROM casos
-        WHERE DT_SIN_PRI IS NOT NULL
-        GROUP BY semana
-        ORDER BY semana
+    return con.execute(f"""
+        WITH {_SQL_SEMANAS}, base AS (
+            SELECT date_trunc('week', DT_SIN_PRI)::DATE AS semana, count(*) AS casos
+            FROM casos WHERE DT_SIN_PRI IS NOT NULL GROUP BY semana
+        )
+        SELECT s.semana, coalesce(b.casos, 0) AS casos
+        FROM semanas s LEFT JOIN base b ON b.semana = s.semana
+        ORDER BY s.semana
     """).df()
 
 
 def serie_semanal_por_comorbidade(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Casos por semana e comorbidade (só quem tem a condição); um caso com duas entra nas duas."""
+    """Casos por semana e comorbidade (só quem tem a condição); um caso com duas entra nas duas.
+
+    Grade completa: toda semana da série nacional x as 11 comorbidades, com casos = 0 onde não houve caso.
+    """
     colunas = ", ".join(COMORBIDADES)
+    lista = ", ".join(f"'{c}'" for c in COMORBIDADES)
     return con.execute(f"""
-        SELECT date_trunc('week', DT_SIN_PRI) AS semana, comorbidade, count(*) AS casos
-        FROM (SELECT DT_SIN_PRI, {colunas} FROM casos)
-            UNPIVOT (valor FOR comorbidade IN ({colunas}))
-        WHERE valor = {COMORBIDADE_SIM} AND DT_SIN_PRI IS NOT NULL
-        GROUP BY comorbidade, semana
-        ORDER BY comorbidade, semana
+        WITH {_SQL_SEMANAS}, base AS (
+            SELECT date_trunc('week', DT_SIN_PRI)::DATE AS semana, comorbidade, count(*) AS casos
+            FROM (SELECT DT_SIN_PRI, {colunas} FROM casos)
+                UNPIVOT (valor FOR comorbidade IN ({colunas}))
+            WHERE valor = {COMORBIDADE_SIM} AND DT_SIN_PRI IS NOT NULL
+            GROUP BY comorbidade, semana
+        )
+        SELECT s.semana, g.comorbidade, coalesce(b.casos, 0) AS casos
+        FROM semanas s CROSS JOIN (SELECT unnest([{lista}]) AS comorbidade) g
+            LEFT JOIN base b ON b.semana = s.semana AND b.comorbidade = g.comorbidade
+        ORDER BY g.comorbidade, s.semana
     """).df()
 
 
 def serie_semanal_por_estado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Casos por semana e UF de residência; casos sem data válida, sem UF ou com UF inválida ficam de fora."""
+    """Casos por semana e UF de residência; casos sem data válida, sem UF ou com UF inválida ficam de fora.
+
+    Grade completa: toda semana da série nacional x as 27 UFs, com casos = 0 onde não houve caso.
+    """
     return con.execute(f"""
-        SELECT date_trunc('week', DT_SIN_PRI) AS semana, SG_UF AS sigla, count(*) AS casos
-        FROM casos
-        WHERE DT_SIN_PRI IS NOT NULL AND SG_UF IN ({_UFS_SQL})
-        GROUP BY semana, sigla
-        ORDER BY semana, sigla
+        WITH {_SQL_SEMANAS}, base AS (
+            SELECT date_trunc('week', DT_SIN_PRI)::DATE AS semana, SG_UF AS sigla, count(*) AS casos
+            FROM casos
+            WHERE DT_SIN_PRI IS NOT NULL AND SG_UF IN ({_UFS_SQL})
+            GROUP BY semana, sigla
+        )
+        SELECT s.semana, g.sigla, coalesce(b.casos, 0) AS casos
+        FROM semanas s CROSS JOIN (SELECT unnest([{_UFS_SQL}]) AS sigla) g
+            LEFT JOIN base b ON b.semana = s.semana AND b.sigla = g.sigla
+        ORDER BY s.semana, g.sigla
     """).df()
 
 

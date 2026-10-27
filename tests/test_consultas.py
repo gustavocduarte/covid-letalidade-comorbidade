@@ -52,6 +52,11 @@ def test_letalidade_por_estado_valores_calculados_a_mao(con):
         assert (linha.casos, linha.obitos, linha.desfecho_conhecido) == esperado[linha.sigla]
 
 
+def _confere_grade_sem_lacunas(semanas, primeira, ultima):
+    """Segundas-feiras seguidas da primeira à última semana da série nacional, sem faltar nenhuma."""
+    assert list(semanas.dt.strftime("%Y-%m-%d")) == list(pd.date_range(primeira, ultima, freq="7D").strftime("%Y-%m-%d"))
+
+
 def test_serie_semanal_casos_valores_calculados_a_mao(con):
     serie = serie_semanal_casos(con)
 
@@ -60,29 +65,35 @@ def test_serie_semanal_casos_valores_calculados_a_mao(con):
         "2020-12-28": 2,  # 30/dez/2020 (arquivo de 2020) + 01/jan/2021 (arquivo de 2021)
         "2021-01-04": 5, "2021-01-11": 2,
     }
-    assert dict(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["casos"], strict=True)) == esperado
+    com_casos = serie[serie["casos"] > 0]
+    assert dict(zip(com_casos["semana"].dt.strftime("%Y-%m-%d"), com_casos["casos"], strict=True)) == esperado
     assert serie["casos"].sum() == 20  # 22 casos de COVID menos 2 sem data válida
+    _confere_grade_sem_lacunas(serie["semana"], "2020-03-02", "2021-01-11")  # as demais semanas têm casos = 0
 
 
 def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
     serie = serie_semanal_por_comorbidade(con)
 
     def da(comorbidade):
-        sub = serie[serie["comorbidade"] == comorbidade]
+        sub = serie[(serie["comorbidade"] == comorbidade) & (serie["casos"] > 0)]
         return dict(zip(sub["semana"].dt.strftime("%Y-%m-%d"), sub["casos"], strict=True))
 
     assert da("DIABETES") == {"2020-03-02": 2, "2020-03-09": 2, "2020-03-16": 1, "2021-01-04": 3, "2021-01-11": 1}
     assert da("OBESIDADE") == {"2020-03-09": 1, "2020-03-16": 1, "2021-01-04": 2}
     assert da("CARDIOPATI") == {"2020-03-02": 1, "2020-03-09": 1}
     assert da("SIND_DOWN") == {"2020-12-28": 2, "2021-01-04": 1}  # a semana da virada soma os dois anos
-    assert da("ASMA") == {}  # sem casos: nenhuma linha
-    assert len(serie) == 12
+    assert da("ASMA") == {}  # sem casos: só linhas com casos = 0
+    assert serie["casos"].sum() == 18  # a soma das 12 linhas antigas não muda; as demais têm casos = 0
+    for _, sub in serie.groupby("comorbidade"):
+        _confere_grade_sem_lacunas(sub["semana"], "2020-03-02", "2021-01-11")
+    assert serie["comorbidade"].nunique() == 11 and len(serie) == 11 * 46
 
 
 def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
     serie = serie_semanal_por_estado(con)
 
-    obtido = list(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["sigla"], serie["casos"], strict=True))
+    com_casos = serie[serie["casos"] > 0]
+    obtido = list(zip(com_casos["semana"].dt.strftime("%Y-%m-%d"), com_casos["sigla"], com_casos["casos"], strict=True))
     assert obtido == [
         ("2020-03-02", "SP", 2), ("2020-03-09", "MG", 2), ("2020-03-09", "RJ", 3),
         ("2020-03-16", "MG", 1), ("2020-03-16", "SP", 1),
@@ -91,6 +102,9 @@ def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
         ("2021-01-11", "BA", 1),
     ]
     assert serie["casos"].sum() == 17  # 20 com data válida, menos 1 sem UF e 2 com UF inválida (XX, ZZ)
+    assert serie["sigla"].nunique() == 27 and len(serie) == 27 * 46  # grade completa; as demais linhas têm casos = 0
+    for _, sub in serie.groupby("sigla"):
+        _confere_grade_sem_lacunas(sub["semana"], "2020-03-02", "2021-01-11")
 
 
 def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero(tmp_path, csvs_sinteticos):

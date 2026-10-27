@@ -137,6 +137,11 @@ def test_agregado_soma_antes_de_dividir(saidas):
     assert pd.isna(d.taxa_letalidade_sem)
 
 
+def _semanas_da_grade() -> list[str]:
+    """Segundas-feiras seguidas da primeira (02/03/2020) à última (11/01/2021) semana com casos da amostra."""
+    return list(pd.date_range("2020-03-02", "2021-01-11", freq="7D").strftime("%Y-%m-%d"))
+
+
 def test_serie_semanal_junta_a_virada_do_ano_e_ignora_data_invalida(saidas):
     df = pd.read_csv(saidas / "casos_covid_por_semana.csv")
     esperado = {
@@ -144,16 +149,18 @@ def test_serie_semanal_junta_a_virada_do_ano_e_ignora_data_invalida(saidas):
         "2020-12-28": 2,  # 30/dez/2020 (arquivo de 2020) + 01/jan/2021 (arquivo de 2021)
         "2021-01-04": 5, "2021-01-11": 2,
     }
-    assert dict(zip(df["semana"], df["casos"], strict=True)) == esperado
+    com_casos = df[df["casos"] > 0]
+    assert dict(zip(com_casos["semana"], com_casos["casos"], strict=True)) == esperado
     assert df["casos"].sum() == 20  # 22 casos de COVID menos 2 sem data válida
+    assert list(df["semana"]) == _semanas_da_grade()  # sem lacunas: as demais semanas têm casos = 0
 
 
 def test_serie_semanal_por_comorbidade(saidas):
     df = pd.read_csv(saidas / "casos_covid_semanal_por_comorbidade.csv")
-    assert len(df) == 12
+    assert df["casos"].sum() == 18 and len(df[df["casos"] > 0]) == 12 and len(df) == 11 * len(_semanas_da_grade())  # grade completa, soma igual
 
     def serie(comorbidade):
-        sub = df[df["comorbidade"] == comorbidade]
+        sub = df[(df["comorbidade"] == comorbidade) & (df["casos"] > 0)]
         return dict(zip(sub["semana"], sub["casos"], strict=True))
 
     assert serie("DIABETES") == {"2020-03-02": 2, "2020-03-09": 2, "2020-03-16": 1,
@@ -161,12 +168,13 @@ def test_serie_semanal_por_comorbidade(saidas):
     assert serie("OBESIDADE") == {"2020-03-09": 1, "2020-03-16": 1, "2021-01-04": 2}
     assert serie("CARDIOPATI") == {"2020-03-02": 1, "2020-03-09": 1}
     assert serie("SIND_DOWN") == {"2020-12-28": 2, "2021-01-04": 1}
-    assert serie("ASMA") == {}
+    assert serie("ASMA") == {}  # sem casos: só linhas com casos = 0
 
 
 def test_serie_semanal_por_estado_ignora_data_invalida_e_uf_vazia(saidas):
     df = pd.read_csv(saidas / "casos_covid_por_semana_estado.csv")
-    assert len(df) == 10
+    assert len(df) == 27 * len(_semanas_da_grade())  # grade completa: as demais linhas têm casos = 0
+    assert len(df[df["casos"] > 0]) == 10
     assert df["casos"].sum() == 17  # 20 com data válida, menos 1 sem UF e 2 com UF inválida (XX, ZZ)
     assert _linha(df, semana="2020-12-28", sigla="SP").casos == 2  # a virada do ano soma os dois arquivos
 
