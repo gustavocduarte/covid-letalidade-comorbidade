@@ -16,10 +16,8 @@ NOME_ESTADO_PIPELINE = "estado.json"
 # Sobe quando muda a conversão (colunas, filtro, tipos): força reconverter todos os anos.
 VERSAO_CONVERSAO = 1
 CAMINHO_GEOJSON = PASTA_GEO / "brasil_estados.geojson"
-# Quadro do mapa: a altura é fixa; a largura é só a de referência para o enquadramento (o gráfico ocupa
-# a largura do painel), então telas mais estreitas que ela cortam um pouco as bordas.
+# Altura do mapa e dos blocos dos estados; a largura é a do painel.
 ALTURA_MAPA_PX = 600
-LARGURA_REFERENCIA_MAPA_PX = 640
 
 # URLs oficiais do banco de SRAG por ano, hospedadas pelo Ministério da Saúde (OpenDataSUS).
 # Conferidas em 2026-09-11 (a URL de cada ano muda de tempos em tempos, porque inclui a
@@ -128,16 +126,6 @@ SEQUENCIA_CORES_SERIES = ("#4C83F0", "#F3A268", "#C7A0EE", "#22D3EE", "#BEF264",
 # Escala sequencial da letalidade: do escuro ao brilhante, legível sobre o fundo escuro.
 ESCALA_LETALIDADE = ("#134E5E", "#0E8FA8", "#22D3EE", "#A5F3FC")
 CONFIG_PLOTLY = {"displayModeBar": False}
-
-# Estilo do mapa: só um fundo transparente (nenhuma fonte de tiles externa), para o painel aparecer por trás.
-# Os números sobre os estados dependem das fontes de fonts.openmaptiles.org (as mesmas do "white-bg" do Plotly);
-# se o serviço cair, o mapa continua colorido, só sem os números.
-ESTILO_MAPA = {
-    "version": 8,
-    "sources": {},
-    "layers": [{"id": "fundo", "type": "background", "paint": {"background-opacity": 0}}],
-    "glyphs": "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
-}
 
 # CSVs de saída que o dashboard lê (só estes, o relatório e o GeoJSON).
 CAMINHO_AGREGADO = PROCESSED_DIR / NOME_AGREGADO
