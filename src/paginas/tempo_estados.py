@@ -15,6 +15,7 @@ from config import (
     COMORBIDADES_SOBREPOSTAS_INICIAIS,
     DATA_INICIO_VACINACAO,
     ESTADOS_COMPARADOS_INICIAIS,
+    FRACAO_PICO_DA_CAUDA,
     MAXIMO_COMORBIDADES_SOBREPOSTAS,
     MAXIMO_ESTADOS_COMPARADOS,
     NOMES_CURTOS_COMORBIDADES,
@@ -123,41 +124,22 @@ with st.container(border=True, key="painel_curvas"):
         st.info("Selecione pelo menos um estado para ver o gráfico.")
 
 with st.container(border=True, key="painel_cauda"):
-    st.markdown("**Pico e duração da cauda, por estado**")
-    st.caption(
-        "\"Semanas até cair pra <10% do pico\" conta quantas semanas, depois do pico, o "
-        "estado levou até os casos semanais caírem abaixo de 10% do valor máximo — um "
-        "número maior indica uma cauda mais longa (queda mais lenta pra depois do pico)."
-    )
-
-    linhas_resumo = []
-    for sigla, grupo in df_semanal_estado.groupby("sigla"):
-        grupo = grupo.sort_values("semana").reset_index(drop=True)
-        idx_pico = grupo["casos"].idxmax()
-        pico = grupo.loc[idx_pico, "casos"]
-        semana_pico = grupo.loc[idx_pico, "semana"]
-        limiar = pico * 0.10
-        depois_pico = grupo.loc[idx_pico:]
-        abaixo_do_limiar = depois_pico[depois_pico["casos"] < limiar]
-        if len(abaixo_do_limiar) > 0:
-            semanas_cauda = int((abaixo_do_limiar.iloc[0]["semana"] - semana_pico).days // 7)
-        else:
-            semanas_cauda = None
-        linhas_resumo.append({
-            "nome": nomes_estados[sigla],
-            "semana_pico": semana_pico,
-            "semanas_ate_10pct": semanas_cauda,
-        })
-
-    df_resumo_estado = pd.DataFrame(linhas_resumo).sort_values(
-        "semanas_ate_10pct", ascending=False, na_position="last"
+    titulo_painel(
+        "Pico e duração da cauda, por estado",
+        "Semanas depois do pico até os casos semanais caírem abaixo de "
+        f"{FRACAO_PICO_DA_CAUDA:.0%} do pico. Número maior = queda mais lenta.",
     )
     st.dataframe(
-        df_resumo_estado,
+        resumo_estados[["nome", "semana_pico", "semanas_ate_cauda"]],
         hide_index=True,
+        height="content",
         column_config={
             "nome": st.column_config.TextColumn("Estado"),
             "semana_pico": st.column_config.DateColumn("Semana do pico", format="DD/MM/YYYY"),
-            "semanas_ate_10pct": st.column_config.NumberColumn("Semanas até cair p/ <10% do pico", format="%d"),
+            "semanas_ate_cauda": st.column_config.ProgressColumn(
+                "Semanas até cair abaixo de 10% do pico", format="%d", min_value=0,
+                max_value=int(resumo_estados["semanas_ate_cauda"].max()),
+            ),
         },
     )
+    st.caption(f"{len(resumo_estados)} estados, ordenados pela cauda mais longa. Sem valor: o estado não caiu abaixo do limiar.")

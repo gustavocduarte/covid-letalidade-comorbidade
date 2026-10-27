@@ -169,3 +169,14 @@ def test_curvas_por_estado_abrem_com_mg_rj_sp_e_acompanham_a_escolha():
     curvas = [t["name"] for g in tela.get("plotly_chart") for t in json.loads(g.proto.spec)["data"]
               if t.get("name") in {"Minas Gerais", "Rio de Janeiro", "São Paulo"}]
     assert not tela.exception and curvas == ["Minas Gerais", "São Paulo"]
+
+
+def test_tabela_de_pico_e_cauda_lista_os_27_estados_pela_cauda_mais_longa():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    tabela = tela.dataframe[0].value
+
+    assert not tela.exception
+    assert len(tabela) == 27 and tabela["semanas_ate_cauda"].is_monotonic_decreasing
+    assert tabela["nome"].iloc[0] in {"Paraná", "Santa Catarina"}
