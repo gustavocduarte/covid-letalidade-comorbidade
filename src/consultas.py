@@ -42,6 +42,7 @@ def abrir_casos(
         con = duckdb.connect()
         try:
             con.execute(f"SET memory_limit = '{limite_memoria}'")
+            con.execute("SET enable_progress_bar = false")  # a barra suja o stdout dos logs
             con.execute(f"SET temp_directory = '{Path(pasta_temp).as_posix()}'")
             con.execute(f"CREATE VIEW casos AS SELECT * FROM read_parquet('{glob}', hive_partitioning=true) {filtro}")
             # Anos pelos arquivos, não pelas linhas: um ano sem nenhum caso de COVID tem Parquet vazio.

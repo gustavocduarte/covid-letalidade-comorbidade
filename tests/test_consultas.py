@@ -169,3 +169,7 @@ def test_empate_de_taxa_segue_a_ordem_de_comorbidades_no_agregado_e_por_ano(tmp_
 
     for tabela in (agregado, por_ano):
         assert list(tabela["comorbidade"][:2]) == ["SIND_DOWN", "ASMA"]
+
+
+def test_conexao_das_consultas_sem_barra_de_progresso(con):
+    assert con.execute("SELECT current_setting('enable_progress_bar')").fetchone()[0] is False

@@ -48,6 +48,7 @@ def csv_para_parquet(
         con = duckdb.connect()
         try:
             con.execute(f"SET memory_limit = '{limite_memoria}'")
+            con.execute("SET enable_progress_bar = false")  # a barra suja o stdout dos logs
             con.execute(f"SET temp_directory = '{_literal(Path(pasta_temp))}'")
             con.execute(consulta, [str(caminho_csv)])
             linhas = con.execute(f"SELECT count(*) FROM read_parquet('{_literal(parcial)}')").fetchone()[0]

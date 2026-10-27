@@ -97,3 +97,25 @@ def test_escrita_atomica_nao_deixa_arquivo_parcial_nem_estraga_o_existente(tmp_p
 
     assert destino.read_bytes() == original  # o Parquet bom segue intacto
     assert [p.name for p in destino.parent.iterdir()] == ["casos.parquet"]  # e nada sobrou da falha
+
+
+def test_conexao_da_conversao_sem_barra_de_progresso(tmp_path, monkeypatch):
+    comandos = []
+    conectar = duckdb.connect
+
+    class Registro:
+        def __init__(self):
+            self._con = conectar()
+
+        def execute(self, consulta, *args):
+            comandos.append(consulta)
+            return self._con.execute(consulta, *args)
+
+        def close(self):
+            self._con.close()
+
+    monkeypatch.setattr(duckdb, "connect", Registro)
+
+    csv_para_parquet(FIXTURE_2020, tmp_path / "casos.parquet")
+
+    assert "SET enable_progress_bar = false" in comandos
