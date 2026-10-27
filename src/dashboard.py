@@ -174,7 +174,7 @@ with st.container(border=True):
         .properties(height=480, background="transparent")
         .configure_view(strokeWidth=0)
     )
-    st.altair_chart(grafico_final, use_container_width=True)
+    st.altair_chart(grafico_final, width="stretch")
 
 st.subheader("Tabela completa")
 # Seleciona só as colunas de exibição — o df também carrega obitos_com/desfecho_conhecido_com
@@ -259,7 +259,7 @@ with st.container(border=True):
         .properties(height=380, background="transparent")
         .configure_view(strokeWidth=0)
     )
-    st.altair_chart(grafico_tempo, use_container_width=True)
+    st.altair_chart(grafico_tempo, width="stretch")
 
 with st.container(border=True):
     st.subheader("Letalidade de COVID por estado")
@@ -337,7 +337,7 @@ with st.container(border=True):
         paper_bgcolor="rgba(0,0,0,0)",
         font_color=COR_TEXTO,
     )
-    st.plotly_chart(mapa, use_container_width=True)
+    st.plotly_chart(mapa, width="stretch")
 
 with st.container(border=True):
     st.subheader("Casos de COVID por estado ao longo do tempo")
@@ -394,7 +394,7 @@ with st.container(border=True):
             .properties(height=380, background="transparent")
             .configure_view(strokeWidth=0)
         )
-        st.altair_chart(grafico_estado_tempo, use_container_width=True)
+        st.altair_chart(grafico_estado_tempo, width="stretch")
     else:
         st.info("Selecione pelo menos um estado pra ver o gráfico.")
 
