@@ -14,6 +14,10 @@ NOME_ESTADO_PIPELINE = "estado.json"
 # Sobe quando muda a conversão (colunas, filtro, tipos): força reconverter todos os anos.
 VERSAO_CONVERSAO = 1
 CAMINHO_GEOJSON = PASTA_GEO / "brasil_estados.geojson"
+# Quadro do mapa: a altura é fixa; a largura é só a de referência para o enquadramento (o gráfico ocupa
+# a largura do painel), então telas mais estreitas que ela cortam um pouco as bordas.
+ALTURA_MAPA_PX = 600
+LARGURA_REFERENCIA_MAPA_PX = 640
 
 # URLs oficiais do banco de SRAG por ano, hospedadas pelo Ministério da Saúde (OpenDataSUS).
 # Conferidas em 2026-09-11 (a URL de cada ano muda de tempos em tempos, porque inclui a

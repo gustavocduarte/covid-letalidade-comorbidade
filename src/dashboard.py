@@ -9,7 +9,9 @@ import plotly.graph_objects as go
 import streamlit as st
 
 from config import (
+    ALTURA_MAPA_PX,
     CAMINHO_GEOJSON,
+    LARGURA_REFERENCIA_MAPA_PX,
     NOME_AGREGADO,
     NOME_ESTADO,
     NOME_SEMANAL,
@@ -18,6 +20,7 @@ from config import (
     NOMES_COMORBIDADES,
     PROCESSED_DIR,
 )
+from mapa import enquadramento, limites_do_geojson
 from qualidade import aviso_casos_sem_estado
 
 CAMINHO_DADOS = PROCESSED_DIR / NOME_AGREGADO
@@ -302,6 +305,9 @@ with st.container(border=True):
         lambda v: cor_texto_contraste(v, minimo_taxa, maximo_taxa)
     )
 
+    centro_mapa, zoom_mapa = enquadramento(
+        limites_do_geojson(geojson_brasil), LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX
+    )
     mapa = px.choropleth_map(
         df_estado,
         geojson=geojson_brasil,
@@ -313,8 +319,8 @@ with st.container(border=True):
         hover_data={"sigla": False, "taxa_letalidade": ":.1f", "casos_fmt": True},
         labels={"taxa_letalidade": "Taxa de letalidade (%)", "casos_fmt": "Casos de COVID"},
         map_style="white-bg",  # sem mapa-base externo
-        center={"lat": -14.2, "lon": -51.9},
-        zoom=2.7,
+        center=centro_mapa,
+        zoom=zoom_mapa,
         opacity=0.8,
     )
     # Número de casos sempre visível sobre cada estado. textfont.color do Scattermap só
@@ -332,7 +338,7 @@ with st.container(border=True):
         ))
 
     mapa.update_layout(
-        height=520,
+        height=ALTURA_MAPA_PX,
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
         paper_bgcolor="rgba(0,0,0,0)",
         font_color=COR_TEXTO,

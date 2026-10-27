@@ -7,6 +7,8 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
+from config import ALTURA_MAPA_PX, CAMINHO_GEOJSON, LARGURA_REFERENCIA_MAPA_PX
+from mapa import enquadramento, limites_do_geojson
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
@@ -93,3 +95,14 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     mapas = [m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"])]
     assert len(mapas) == 1
     assert mapas[0]["layout"]["map"]["style"] == "white-bg"
+
+
+def test_mapa_de_estados_usa_o_enquadramento_calculado_do_geojson():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
+    mapa = next(m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"]))
+
+    limites = limites_do_geojson(json.loads(CAMINHO_GEOJSON.read_text(encoding="utf-8")))
+    centro, zoom = enquadramento(limites, LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX)
+    assert mapa["layout"]["map"]["zoom"] == pytest.approx(zoom)
+    assert mapa["layout"]["map"]["center"] == pytest.approx(centro)
