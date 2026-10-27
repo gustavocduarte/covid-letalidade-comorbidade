@@ -83,3 +83,45 @@ def siglas_com_rotulo(
             colocados.append((x, y, largura_texto, altura_texto))
             escolhidos.add(sigla)
     return escolhidos
+
+
+def _hex_para_rgb(cor: str) -> tuple[float, float, float]:
+    cor = cor.lstrip("#")
+    return tuple(int(cor[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def cor_na_escala(posicao: float, escala: tuple[str, ...] | list[str]) -> tuple[float, float, float]:
+    """RGB no ponto `posicao` (0 a 1) de uma escala de cores equidistantes, interpolando entre as vizinhas."""
+    ponto = min(max(posicao, 0.0), 1.0) * (len(escala) - 1)
+    inferior = min(int(ponto), len(escala) - 2)
+    fracao = ponto - inferior
+    c0, c1 = _hex_para_rgb(escala[inferior]), _hex_para_rgb(escala[inferior + 1])
+    return tuple(a + fracao * (b - a) for a, b in zip(c0, c1, strict=True))
+
+
+def luminancia_relativa(rgb: tuple[float, float, float]) -> float:
+    """Luminância relativa (WCAG) de uma cor RGB 0-255."""
+
+    def canal(c: float) -> float:
+        c /= 255
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (canal(c) for c in rgb)
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def cor_texto_contraste(
+    valor: float, minimo: float, maximo: float, escala: tuple[str, ...], claro: str, escuro: str,
+) -> str:
+    """`claro` ou `escuro` para o texto sobre a cor da escala naquele valor.
+
+    O claro vale até o escuro ter 1,6 vez o contraste (WCAG) dele: em fundos de tom médio, texto pequeno claro
+    lê melhor que o escuro, mesmo com contraste calculado um pouco menor."""
+    posicao = 0.5 if maximo == minimo else (valor - minimo) / (maximo - minimo)
+    fundo = luminancia_relativa(cor_na_escala(posicao, escala))
+
+    def contraste(cor: str) -> float:
+        luz = luminancia_relativa(_hex_para_rgb(cor))
+        return (max(fundo, luz) + 0.05) / (min(fundo, luz) + 0.05)
+
+    return claro if contraste(claro) * 1.6 >= contraste(escuro) else escuro

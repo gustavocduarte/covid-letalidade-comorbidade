@@ -94,7 +94,10 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
     mapas = [m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"])]
     assert len(mapas) == 1
-    assert mapas[0]["layout"]["map"]["style"] == "white-bg"
+    estilo = mapas[0]["layout"]["map"]["style"]
+    # estilo embutido: sem fonte de tiles (o antigo "carto-positron" baixava o mapa-base de um CDN)
+    assert isinstance(estilo, dict) and estilo["sources"] == {}
+    assert {camada["type"] for camada in estilo["layers"]} == {"background"}
 
 
 def test_mapa_de_estados_usa_o_enquadramento_calculado_do_geojson():

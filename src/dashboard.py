@@ -8,9 +8,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+from componentes import aplicar_template_grafico
 from config import (
     ALTURA_MAPA_PX,
     CAMINHO_GEOJSON,
+    COR_COM_COMORBIDADE,
+    COR_FUNDO_PAGINA,
+    COR_GRADE,
+    COR_SEM_COMORBIDADE,
+    COR_TEXTO,
+    ESCALA_LETALIDADE,
+    ESTILO_MAPA,
     LARGURA_REFERENCIA_MAPA_PX,
     NOME_AGREGADO,
     NOME_ESTADO,
@@ -20,7 +28,8 @@ from config import (
     NOMES_COMORBIDADES,
     PROCESSED_DIR,
 )
-from mapa import enquadramento, limites_do_geojson, siglas_com_rotulo
+from css import CSS_DA_PAGINA
+from mapa import cor_texto_contraste, enquadramento, limites_do_geojson, siglas_com_rotulo
 from qualidade import aviso_casos_sem_estado
 
 CAMINHO_DADOS = PROCESSED_DIR / NOME_AGREGADO
@@ -33,13 +42,7 @@ CAMINHO_SEMANAL_ESTADO = PROCESSED_DIR / NOME_SEMANAL_ESTADO
 # temporal no gráfico de linha do tempo, sem implicar relação de causa e efeito.
 DATA_INICIO_VACINACAO = pd.Timestamp("2021-01-17")
 
-# Paleta do tema (tons de saúde): azul forte para o grupo de maior risco,
-# azul claro para o grupo de referência, cinza bem escuro para texto.
-COR_COM_COMORBIDADE = "#0D47A1"
-COR_SEM_COMORBIDADE = "#90CAF9"
-COR_TEXTO = "#212121"
-COR_GRADE = "#E9ECEF"
-COR_LINHA_GERAL = "#9AA5B1"  # cinza neutro, linha de referência no gráfico de linha do tempo
+COR_LINHA_GERAL = COR_SEM_COMORBIDADE  # linha de referência no gráfico de linha do tempo
 
 
 def _area_e_centroide_anel(anel: list[list[float]]) -> tuple[float, tuple[float, float]]:
@@ -86,27 +89,9 @@ def centro_aproximado(geometria: dict) -> tuple[float, float]:
     return melhor_centro
 
 
-def _hex_para_rgb(hex_cor: str) -> tuple[int, int, int]:
-    """Converte uma cor hexadecimal (`#RRGGBB`) numa tupla RGB (0-255)."""
-    hex_cor = hex_cor.lstrip("#")
-    return tuple(int(hex_cor[i:i + 2], 16) for i in (0, 2, 4))
-
-
-def cor_texto_contraste(valor: float, minimo: float, maximo: float) -> str:
-    """Escolhe branco ou cinza escuro pro rótulo, conforme o tom de azul de fundo naquele
-    valor (interpolando entre as duas cores da escala do mapa)."""
-    t = 0.5 if maximo == minimo else (valor - minimo) / (maximo - minimo)
-    r0, g0, b0 = _hex_para_rgb(COR_SEM_COMORBIDADE)
-    r1, g1, b1 = _hex_para_rgb(COR_COM_COMORBIDADE)
-    r = r0 + t * (r1 - r0)
-    g = g0 + t * (g1 - g0)
-    b = b0 + t * (b1 - b0)
-    luminancia = 0.299 * r + 0.587 * g + 0.114 * b
-    return "#FFFFFF" if luminancia < 140 else COR_TEXTO
-
-
 st.set_page_config(page_title="Letalidade por Comorbidade - COVID-19 Brasil", layout="wide")
 
+st.html(CSS_DA_PAGINA)
 st.title("Letalidade de COVID-19 por Comorbidade — Brasil, 2020–2026")
 st.info(
     "**Fonte:** SIVEP-Gripe (SRAG) / Ministério da Saúde, via OpenDataSUS. "
@@ -302,7 +287,7 @@ with st.container(border=True):
     minimo_taxa = df_estado["taxa_letalidade"].min()
     maximo_taxa = df_estado["taxa_letalidade"].max()
     df_estado["cor_rotulo"] = df_estado["taxa_letalidade"].apply(
-        lambda v: cor_texto_contraste(v, minimo_taxa, maximo_taxa)
+        lambda v: cor_texto_contraste(v, minimo_taxa, maximo_taxa, ESCALA_LETALIDADE, "#FFFFFF", COR_FUNDO_PAGINA)
     )
 
     centro_mapa, zoom_mapa = enquadramento(
@@ -314,14 +299,14 @@ with st.container(border=True):
         locations="sigla",
         featureidkey="properties.sigla",
         color="taxa_letalidade",
-        color_continuous_scale=[COR_SEM_COMORBIDADE, COR_COM_COMORBIDADE],
+        color_continuous_scale=list(ESCALA_LETALIDADE),
         hover_name="nome",
         hover_data={"sigla": False, "taxa_letalidade": ":.1f", "casos_fmt": True},
         labels={"taxa_letalidade": "Taxa de letalidade (%)", "casos_fmt": "Casos de COVID"},
-        map_style="white-bg",  # sem mapa-base externo
+        map_style=ESTILO_MAPA,  # sem mapa-base externo
         center=centro_mapa,
         zoom=zoom_mapa,
-        opacity=0.8,
+        opacity=1,
     )
     # Número de casos sobre cada estado. textfont.color do Scattermap só
     # aceita uma cor por camada (não uma lista por ponto) — por isso separamos os estados
@@ -342,11 +327,11 @@ with st.container(border=True):
             showlegend=False,
         ))
 
+    aplicar_template_grafico(mapa)
+    mapa.update_traces(marker_line_color=COR_FUNDO_PAGINA, marker_line_width=0.8, selector={"type": "choroplethmap"})
     mapa.update_layout(
         height=ALTURA_MAPA_PX,
         margin={"l": 0, "r": 0, "t": 0, "b": 0},
-        paper_bgcolor="rgba(0,0,0,0)",
-        font_color=COR_TEXTO,
     )
     st.plotly_chart(mapa, width="stretch")
 

@@ -106,3 +106,32 @@ JANELA_DATA_DIAS = 7
 LIMITE_DATA_INVALIDA = 0.01
 # Fração de casos sem desfecho conhecido acima da qual se emite aviso.
 LIMITE_SEM_DESFECHO = 0.20
+
+# Tema escuro do dashboard (as mesmas cores de .streamlit/config.toml, que um teste confere).
+COR_FUNDO_PAGINA = "#0B0F14"
+COR_FUNDO_BARRA = "#0E131A"
+COR_FUNDO_PAINEL = "#121820"
+COR_BORDA = "#243040"
+COR_LINHA_TABELA = "#1A2230"
+COR_TEXTO = "#E6EDF3"
+COR_TEXTO_SECUNDARIO = "#9AA7B8"
+COR_EIXO = "#7C8A9C"
+COR_GRADE = "#243040"
+COR_PRINCIPAL = "#22D3EE"
+COR_COM_COMORBIDADE = "#F472B6"
+COR_SEM_COMORBIDADE = "#94A3B8"
+COR_POSITIVO = "#34D399"
+COR_ALERTA = "#FACC15"
+SEQUENCIA_CORES_SERIES = ("#4C83F0", "#F3A268", "#C7A0EE", "#22D3EE", "#BEF264", "#FACC15")
+# Escala sequencial da letalidade: do escuro ao brilhante, legível sobre o fundo escuro.
+ESCALA_LETALIDADE = ("#134E5E", "#0E8FA8", "#22D3EE", "#A5F3FC")
+CONFIG_PLOTLY = {"displayModeBar": False}
+
+# Estilo do mapa: só um fundo transparente (nenhuma fonte de tiles externa), para o painel aparecer por trás.
+# O endereço das fontes de texto (glyphs) é o mesmo que o estilo "white-bg" do Plotly usa para os números.
+ESTILO_MAPA = {
+    "version": 8,
+    "sources": {},
+    "layers": [{"id": "fundo", "type": "background", "paint": {"background-opacity": 0}}],
+    "glyphs": "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
+}

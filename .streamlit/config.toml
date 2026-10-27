@@ -2,8 +2,23 @@
 gatherUsageStats = false
 
 [theme]
-base = "light"
-primaryColor = "#0D47A1"
-backgroundColor = "#F8F9FA"
-secondaryBackgroundColor = "#EEF1F4"
-textColor = "#212121"
+base = "dark"
+primaryColor = "#22D3EE"
+backgroundColor = "#0B0F14"
+secondaryBackgroundColor = "#121820"
+textColor = "#E6EDF3"
+borderColor = "#243040"
+dataframeBorderColor = "#243040"
+dataframeHeaderBackgroundColor = "#121820"
+baseRadius = "medium"
+greenColor = "#34D399"
+redColor = "#F472B6"
+yellowColor = "#FACC15"
+chartCategoricalColors = ["#4C83F0", "#F3A268", "#C7A0EE", "#22D3EE", "#BEF264", "#FACC15"]
+font = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+headingFont = "Inter:https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+codeFont = "JetBrains Mono:https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600&display=swap"
+
+[theme.sidebar]
+backgroundColor = "#0E131A"
+secondaryBackgroundColor = "#121820"
