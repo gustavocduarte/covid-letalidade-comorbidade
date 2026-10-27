@@ -42,3 +42,44 @@ def enquadramento(
     y_centro = (y_min + y_max) / 2
     lat_centro = math.degrees(2 * math.atan(math.exp(y_centro)) - math.pi / 2)
     return {"lat": lat_centro, "lon": (lon_min + lon_max) / 2}, zoom
+
+
+def siglas_com_rotulo(
+    geojson: dict,
+    zoom: float,
+    textos: dict[str, str],
+    centros: dict[str, tuple[float, float]],
+    fonte_px: int = 8,
+    aproveitamento: float = 0.6,
+) -> set[str]:
+    """Siglas dos estados cujo texto cabe no estado e não encosta no texto de outro, no zoom dado.
+
+    Mede em pixels a caixa de cada estado (descontando o que ela tem de vazio, `aproveitamento`) e o retângulo do
+    texto no `centro` (lon, lat) do estado; os maiores estados escolhem primeiro. A largura de um caractere é
+    estimada em 0,6 da fonte. Quem fica de fora mostra o valor só ao passar o mouse.
+    """
+    mundo = TILE_PX * 2**zoom
+    candidatos = []
+    for feature in geojson["features"]:
+        sigla = feature["properties"]["sigla"]
+        lon_min, lon_max, lat_min, lat_max = limites_do_geojson({"features": [feature]})
+        largura = math.radians(lon_max - lon_min) * mundo / (2 * math.pi) * aproveitamento
+        altura = (_y_mercator(lat_max) - _y_mercator(lat_min)) * mundo / (2 * math.pi) * aproveitamento
+        largura_texto, altura_texto = len(textos[sigla]) * 0.6 * fonte_px, fonte_px * 1.2
+        if largura >= largura_texto + 4 and altura >= altura_texto + 4:
+            lon, lat = centros[sigla]
+            x = math.radians(lon) * mundo / (2 * math.pi)
+            y = -_y_mercator(lat) * mundo / (2 * math.pi)
+            candidatos.append((largura * altura, sigla, (x, y, largura_texto, altura_texto)))
+
+    colocados: list[tuple[float, float, float, float]] = []
+    escolhidos = set()
+    for _, sigla, (x, y, largura_texto, altura_texto) in sorted(candidatos, reverse=True):
+        encosta = any(
+            abs(x - x2) < (largura_texto + l2) / 2 + 3 and abs(y - y2) < (altura_texto + a2) / 2 + 3
+            for x2, y2, l2, a2 in colocados
+        )
+        if not encosta:
+            colocados.append((x, y, largura_texto, altura_texto))
+            escolhidos.add(sigla)
+    return escolhidos

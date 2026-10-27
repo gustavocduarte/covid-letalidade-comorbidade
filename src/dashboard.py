@@ -20,7 +20,7 @@ from config import (
     NOMES_COMORBIDADES,
     PROCESSED_DIR,
 )
-from mapa import enquadramento, limites_do_geojson
+from mapa import enquadramento, limites_do_geojson, siglas_com_rotulo
 from qualidade import aviso_casos_sem_estado
 
 CAMINHO_DADOS = PROCESSED_DIR / NOME_AGREGADO
@@ -268,8 +268,8 @@ with st.container(border=True):
     st.subheader("Letalidade de COVID por estado")
     st.caption(
         "Estados com poucos casos podem ter taxa de letalidade instável por causa da "
-        "amostra pequena — o número de casos fica sempre visível sobre cada estado (e "
-        "também no texto ao passar o mouse), de propósito, pra essa instabilidade não "
+        "amostra pequena — por isso o número de casos aparece sobre os estados em que "
+        "cabe e, em todos, no texto ao passar o mouse, pra essa instabilidade não "
         "ficar escondida atrás da cor."
     )
     aviso_sem_estado = aviso_casos_sem_estado()
@@ -323,10 +323,15 @@ with st.container(border=True):
         zoom=zoom_mapa,
         opacity=0.8,
     )
-    # Número de casos sempre visível sobre cada estado. textfont.color do Scattermap só
+    # Número de casos sobre cada estado. textfont.color do Scattermap só
     # aceita uma cor por camada (não uma lista por ponto) — por isso separamos os estados
     # em dois grupos (rótulo branco / rótulo escuro) em vez de uma camada só.
-    for cor, grupo in df_estado.groupby("cor_rotulo"):
+    # O número só aparece onde cabe no estado; nos pequenos (litoral do Nordeste, ES, RJ...) fica no hover.
+    com_rotulo = siglas_com_rotulo(
+        geojson_brasil, zoom_mapa, dict(zip(df_estado["sigla"], df_estado["casos_fmt"], strict=True)),
+        dict(zip(df_estado["sigla"], zip(df_estado["lon_centro"], df_estado["lat_centro"], strict=True), strict=True)),
+    )
+    for cor, grupo in df_estado[df_estado["sigla"].isin(com_rotulo)].groupby("cor_rotulo"):
         mapa.add_trace(go.Scattermap(
             lat=grupo["lat_centro"],
             lon=grupo["lon_centro"],

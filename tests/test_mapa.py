@@ -5,8 +5,8 @@ import math
 
 import pytest
 
-from config import CAMINHO_GEOJSON
-from mapa import TILE_PX, _y_mercator, enquadramento, limites_do_geojson
+from config import ALTURA_MAPA_PX, CAMINHO_GEOJSON, LARGURA_REFERENCIA_MAPA_PX
+from mapa import TILE_PX, _y_mercator, enquadramento, limites_do_geojson, siglas_com_rotulo
 
 
 def _geojson(*geometrias: dict) -> dict:
@@ -53,3 +53,54 @@ def test_centro_fica_no_meio_dos_limites():
     # no Mercator o meio do quadro fica um pouco ao sul do meio das latitudes
     assert -34.0 < centro["lat"] < -14.0
     assert _y_mercator(centro["lat"]) == pytest.approx((_y_mercator(-34.0) + _y_mercator(6.0)) / 2)
+
+
+def _estado(sigla: str, lon: float, lat: float, lado: float) -> dict:
+    anel = [[lon, lat], [lon + lado, lat], [lon + lado, lat + lado], [lon, lat + lado], [lon, lat]]
+    return {"properties": {"sigla": sigla}, "geometry": {"type": "Polygon", "coordinates": [anel]}}
+
+
+def _centros(geojson: dict) -> dict[str, tuple[float, float]]:
+    centros = {}
+    for f in geojson["features"]:
+        lon_min, lon_max, lat_min, lat_max = limites_do_geojson({"features": [f]})
+        centros[f["properties"]["sigla"]] = ((lon_min + lon_max) / 2, (lat_min + lat_max) / 2)
+    return centros
+
+
+def test_rotulo_so_onde_cabe_e_mais_zoom_faz_caber():
+    geojson = {"features": [_estado("GR", -60, -10, 10), _estado("PQ", -40, -10, 1)]}
+    textos = {"GR": "212.505", "PQ": "212.505"}
+    centros = _centros(geojson)
+
+    assert siglas_com_rotulo(geojson, 3.0, textos, centros) == {"GR"}
+    assert siglas_com_rotulo(geojson, 6.0, textos, centros) == {"GR", "PQ"}
+
+
+def test_rotulo_maior_precisa_de_mais_espaco():
+    geojson = {"features": [_estado("MD", -50, -10, 3)]}
+    centros = _centros(geojson)
+
+    assert siglas_com_rotulo(geojson, 3.0, {"MD": "5"}, centros) == {"MD"}
+    assert siglas_com_rotulo(geojson, 3.0, {"MD": "1.234.567"}, centros) == set()
+
+
+def test_rotulo_que_encosta_em_outro_fica_de_fora_e_o_maior_escolhe_primeiro():
+    # os dois cabem sozinhos, mas os centros ficam a poucos pixels um do outro
+    geojson = {"features": [_estado("PQ", -50, -10, 6), _estado("GR", -52, -12, 10)]}
+    textos = {"PQ": "1.000", "GR": "1.000"}
+    centros = {"PQ": (-47.0, -7.0), "GR": (-47.5, -7.0)}
+
+    assert siglas_com_rotulo(geojson, 4.0, textos, centros) == {"GR"}
+    assert siglas_com_rotulo(geojson, 4.0, textos, {"PQ": (-47.0, -7.0), "GR": (-57.0, -7.0)}) == {"PQ", "GR"}
+
+
+def test_com_os_estados_reais_cabem_os_grandes_e_ficam_de_fora_os_do_litoral_do_nordeste():
+    geojson = json.loads(CAMINHO_GEOJSON.read_text(encoding="utf-8"))
+    _, zoom = enquadramento(limites_do_geojson(geojson), LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX)
+    textos = {f["properties"]["sigla"]: "212.505" for f in geojson["features"]}
+
+    com_rotulo = siglas_com_rotulo(geojson, zoom, textos, _centros(geojson))
+
+    assert {"AM", "PA", "MT", "MG", "BA"} <= com_rotulo
+    assert not {"SE", "AL", "DF"} & com_rotulo
