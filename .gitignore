@@ -23,10 +23,6 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Cache intermediário grande (~140 MB), regenerável por `python src/cli.py pipeline`
-data/processed/casos_covid_detalhado.csv
-data/processed/*_detalhado.csv
-
 # Metadados gerados por pip install -e
 *.egg-info/
 # Parquets por ano gerados pelo pipeline (reconstruíveis a partir de data/raw/)

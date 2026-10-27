@@ -183,7 +183,8 @@ O teste de regressão "dourado" (`pytest -m golden`) roda o pipeline completo so
 dados brutos de `data/raw/` (~4,8 GB, uns 3 minutos) e compara com os CSVs versionados.
 Ele fica fora da execução padrão e só roda sob demanda, localmente. Além dos CSVs, confere
 que os Parquets batem com o resumo versionado em `tests/golden/detalhado_resumo.json`
-(linhas, óbitos, curas, casos por UF e contagem de valores de cada coluna, por ano).
+(linhas, óbitos, curas, casos por UF, contagem de valores de cada coluna e uma impressão
+digital por ano: a soma do MD5 de cada linha com as 14 colunas, que não depende da ordem das linhas).
 
 ## Como o pipeline funciona
 

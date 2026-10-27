@@ -20,7 +20,6 @@ from config import (
     DUCKDB_LIMITE_MEMORIA,
     EVOLUCAO_CURA,
     EVOLUCAO_OBITO,
-    NOME_CACHE_DETALHADO,
     NOME_PARQUET_ANO,
     NOME_RELATORIO,
 )
@@ -40,6 +39,9 @@ SAIDAS = [
     "letalidade_por_estado_agregado.csv",
     "casos_covid_por_semana_estado.csv",
 ]
+
+# As 14 colunas do Parquet; a impressão digital de um ano usa todas elas.
+COLUNAS_PARQUET = ["DT_SIN_PRI", "SG_UF", "EVOLUCAO", *COMORBIDADES]
 
 # Só as taxas (razão de inteiros em float) têm tolerância; contagens são exatas.
 TOLERANCIA_TAXA = 1e-12
@@ -115,37 +117,14 @@ def test_relatorio_de_qualidade_igual_ao_versionado(saidas_geradas):
     assert gerado == esperado
 
 
-def test_parquets_iguais_ao_cache_csv_anterior(saidas_geradas):
-    """Cada linha dos Parquets é igual à linha do cache CSV que gerou os CSVs versionados (mesma posição)."""
-    cache = PROCESSADOS / NOME_CACHE_DETALHADO
-    if not cache.exists():
-        pytest.skip(f"{NOME_CACHE_DETALHADO} não existe localmente (cache ignorado pelo git)")
 
-    con = duckdb.connect()
-    con.execute(f"SET memory_limit = '{DUCKDB_LIMITE_MEMORIA}'")
-    # No cache tudo era texto: datas com hora ("2020-03-02T00:00:00.000Z") e códigos como "2.0".
-    conversao = {
-        "DT_SIN_PRI": "TRY_CAST(left(DT_SIN_PRI, 10) AS DATE)",
-        "SG_UF": "SG_UF",
-        **{c: f"TRY_CAST(TRY_CAST({c} AS DOUBLE) AS SMALLINT)" for c in ["EVOLUCAO", *COMORBIDADES]},
-    }
-    anos = sorted(int(p.name.removeprefix("ano=")) for p in (saidas_geradas / "detalhado").glob("ano=*"))
-    assert anos == sorted(URLS_SRAG)
+def impressao_digital_sql(colunas: list[str]) -> str:
+    """Soma, sobre as linhas, do MD5 de um texto canônico com as colunas (nulo = "<nulo>").
 
-    for ano in anos:
-        parquet = (saidas_geradas / "detalhado" / f"ano={ano}" / NOME_PARQUET_ANO).as_posix()
-        iguais = " AND ".join(f"c.{coluna} IS NOT DISTINCT FROM p.{coluna}" for coluna in conversao)
-        # numeradas depois do filtro de ano, na ordem do arquivo
-        linhas_csv, linhas_parquet, divergentes = con.execute(f"""
-            WITH
-            c AS (SELECT row_number() OVER () AS n, {", ".join(f"{expr} AS {c}" for c, expr in conversao.items())}
-                  FROM read_csv('{cache.as_posix()}', delim=',', header=true, all_varchar=true) WHERE ano = '{ano}'),
-            p AS (SELECT row_number() OVER () AS n, {", ".join(conversao)} FROM read_parquet('{parquet}'))
-            SELECT (SELECT count(*) FROM c), (SELECT count(*) FROM p),
-                   count(*) FILTER (WHERE c.n IS NULL OR p.n IS NULL OR NOT ({iguais}))
-            FROM c FULL JOIN p ON c.n = p.n
-        """).fetchone()
-        assert (linhas_parquet, divergentes) == (linhas_csv, 0), f"{ano}: parquet difere do cache CSV"
+    Não depende da ordem das linhas. Usa MD5, que é estável entre versões do DuckDB (ao contrário de hash()).
+    """
+    texto = ", ".join(f"coalesce(CAST({c} AS VARCHAR), '<nulo>')" for c in colunas)
+    return f"sum(md5_number_lower(concat_ws('|', {texto})))"
 
 
 def _resumo_por_ano(con: duckdb.DuckDBPyConnection, glob: str) -> dict:
@@ -161,20 +140,24 @@ def _resumo_por_ano(con: duckdb.DuckDBPyConnection, glob: str) -> dict:
 
     totais = con.execute(f"""
         SELECT ano, count(*), count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_OBITO}),
-               count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_CURA})
+               count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_CURA}), {impressao_digital_sql(COLUNAS_PARQUET)}
         FROM read_parquet('{glob}', hive_partitioning=true) GROUP BY ano ORDER BY ano
     """).fetchall()
     return {
         str(ano): {
-            "linhas": linhas, "obitos": obitos, "curas": curas, "casos_por_uf": contar("SG_UF", ano),
+            "linhas": linhas, "obitos": obitos, "curas": curas, "impressao_digital": str(impressao),
+            "casos_por_uf": contar("SG_UF", ano),
             "valores_por_coluna": {c: contar(c, ano) for c in ["DT_SIN_PRI", "EVOLUCAO", *COMORBIDADES]},
         }
-        for ano, linhas, obitos, curas in totais
+        for ano, linhas, obitos, curas, impressao in totais
     }
 
 
 def test_parquets_iguais_ao_resumo_versionado(saidas_geradas):
-    """Não depende do cache CSV: o resumo versionado foi gerado dele quando ele ainda existia."""
+    """Contagens por coluna e impressão digital por ano (soma de MD5 das 14 colunas, sem depender da ordem das linhas).
+
+    O resumo foi conferido contra o cache CSV antigo linha a linha, e as impressões digitais bateram nos 7 anos.
+    """
     con = duckdb.connect()
     con.execute(f"SET memory_limit = '{DUCKDB_LIMITE_MEMORIA}'")
     glob = (saidas_geradas / "detalhado" / "ano=*" / NOME_PARQUET_ANO).as_posix()
