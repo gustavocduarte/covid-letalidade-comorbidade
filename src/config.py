@@ -194,3 +194,5 @@ PAGINAS = (
 LIMITE_AMOSTRA_PEQUENA = 10_000
 # Diferença de letalidade (em pontos percentuais, em módulo) abaixo da qual o dashboard a trata como neutra.
 FAIXA_NEUTRA_PP = 2.0
+# A "cauda" de um estado termina na primeira semana depois do pico com casos abaixo desta fração do pico.
+FRACAO_PICO_DA_CAUDA = 0.10

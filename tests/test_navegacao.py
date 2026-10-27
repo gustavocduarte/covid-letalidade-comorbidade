@@ -108,3 +108,14 @@ def test_tabela_exibe_os_numeros_em_pt_br_mantendo_os_valores_numericos():
     exibido = pa.ipc.open_stream(tela.dataframe[0].proto.arrow_data.styler.display_values).read_all().to_pandas()
     assert exibido.iloc[0, 1:6].tolist() == ["78.513", "53,3%", "767.370", "36,9%", "+16,4 p.p."]
     assert tela.dataframe[0].value["casos_com"].iloc[0] == 78513
+
+
+def test_pagina_do_tempo_abre_com_os_quatro_indicadores_do_topo():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    html = _html(tela)
+    assert not tela.exception
+    for rotulo in ("Pico semanal", "Início da vacinação", "Cauda mais longa", "Semana mais recente"):
+        assert rotulo in html
+    assert "17/01/2021" in html

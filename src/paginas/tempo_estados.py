@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from componentes import aplicar_template_grafico
+from componentes import aplicar_template_grafico, html_kpi
 from config import (
     ALTURA_MAPA_PX,
     CAMINHO_ESTADO,
@@ -26,6 +26,7 @@ from config import (
     LARGURA_REFERENCIA_MAPA_PX,
     NOMES_COMORBIDADES,
 )
+from indicadores_tempo import kpis_tempo, resumo_por_estado
 from mapa import (
     centro_aproximado,
     cor_texto_contraste,
@@ -38,6 +39,17 @@ from qualidade import aviso_casos_sem_estado
 # Referência temporal no gráfico da linha do tempo, sem implicar relação de causa e efeito.
 DATA_INICIO_VACINACAO = pd.Timestamp(DATA_INICIO_VACINACAO)
 COR_LINHA_GERAL = COR_SEM_COMORBIDADE  # linha de referência no gráfico de linha do tempo
+
+with open(CAMINHO_GEOJSON, encoding="utf-8") as arquivo_geojson:
+    geojson_brasil = json.load(arquivo_geojson)
+nomes_estados = {f["properties"]["sigla"]: f["properties"]["nome"] for f in geojson_brasil["features"]}
+
+df_semanal_estado = pd.read_csv(CAMINHO_SEMANAL_ESTADO, parse_dates=["semana"])
+resumo_estados = resumo_por_estado(df_semanal_estado, nomes_estados)
+st.html('<div class="cv-kpis">' + "".join(
+    html_kpi(k.rotulo, k.valor, k.linha, k.cor, k.ajuda)
+    for k in kpis_tempo(pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"]), resumo_estados)
+) + "</div>")
 
 with st.container(border=True):
     st.subheader("Casos de COVID ao longo do tempo")
@@ -125,10 +137,6 @@ with st.container(border=True):
     # caixa delimitadora (um em cima do outro), mesmo com geometria e lookup corretos —
     # confirmamos isso testando o GeoJSON num visualizador externo (geojson.io), que
     # renderizou perfeitamente. Só a versão WebGL (`choropleth_map`) funciona aqui.
-    with open(CAMINHO_GEOJSON, encoding="utf-8") as arquivo_geojson:
-        geojson_brasil = json.load(arquivo_geojson)
-    nomes_estados = {f["properties"]["sigla"]: f["properties"]["nome"] for f in geojson_brasil["features"]}
-
     df_estado = pd.read_csv(CAMINHO_ESTADO)
     df_estado["taxa_letalidade"] = df_estado["taxa_letalidade"] * 100
     df_estado["casos_fmt"] = df_estado["casos"].apply(lambda x: f"{x:,}".replace(",", "."))
@@ -200,7 +208,6 @@ with st.container(border=True):
         "bruto (que sempre favoreceria estados mais populosos, como São Paulo)."
     )
 
-    df_semanal_estado = pd.read_csv(CAMINHO_SEMANAL_ESTADO, parse_dates=["semana"])
     df_semanal_estado["nome"] = df_semanal_estado["sigla"].map(nomes_estados)
 
     # Normaliza cada estado em relação ao seu próprio pico (0-100%), não ao volume bruto.
