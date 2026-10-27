@@ -13,8 +13,10 @@ from config import (
     LIMITE_AMOSTRA_PEQUENA,
 )
 from indicadores import (
+    achados_comorbidades,
     celulas_da_comorbidade,
     classe_da_diferenca,
+    juntar_nomes,
     kpis_comorbidades,
     maior_risco,
     preparar_agregado,
@@ -108,3 +110,44 @@ def test_celulas_da_comorbidade_mostram_com_sem_e_diferenca_com_a_cor_da_faixa()
     assert renal["Diferença"].cor == COR_COM_COMORBIDADE
     assert asma["Diferença"].cor == COR_POSITIVO and asma["Diferença"].valor == "-10,0 p.p."
     assert down["Diferença"].cor == COR_TEXTO_SECUNDARIO
+
+
+def test_achados_com_os_dados_versionados_descrevem_sem_afirmar_causa():
+    agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
+
+    renal, abaixo, atencao = achados_comorbidades(agregado)
+
+    assert renal.destaque == "Doença Renal Crônica"
+    assert "53% contra 37%" in renal.texto and "1,4 vez maior" in renal.texto
+    assert "Doença Hepática Crônica e Doença Neurológica Crônica vêm logo atrás" in renal.texto
+    assert abaixo.destaque == "Asma"
+    assert "pode refletir" in abaixo.texto and "não indica proteção" in abaixo.texto
+    assert "Síndrome de Down (amostra pequena)" in abaixo.texto  # dentro da faixa neutra e com amostra pequena
+    assert atencao.atencao and atencao.destaque == "Atenção:" and "não é de pessoas saudáveis" in atencao.texto
+
+
+def test_achados_sem_comorbidade_abaixo_da_taxa_de_quem_nao_tem_omitem_o_cartao():
+    df = preparar_agregado(pd.DataFrame({
+        "comorbidade": ["RENAL", "HEPATICA", "ASMA"], "casos_com": [50000] * 3, "casos_sem": [700000] * 3,
+        "taxa_letalidade_com": [0.5, 0.45, 0.42], "taxa_letalidade_sem": [0.4, 0.4, 0.4],
+    }))
+
+    achados = achados_comorbidades(df)
+
+    assert [a.destaque for a in achados] == ["Doença Renal Crônica", "Atenção:"]
+
+
+def test_achados_mais_de_uma_abaixo_usam_o_plural():
+    df = preparar_agregado(pd.DataFrame({
+        "comorbidade": ["RENAL", "ASMA", "OBESIDADE"], "casos_com": [50000] * 3, "casos_sem": [700000] * 3,
+        "taxa_letalidade_com": [0.5, 0.30, 0.31], "taxa_letalidade_sem": [0.4, 0.4, 0.4],
+    }))
+
+    abaixo = achados_comorbidades(df)[1]
+
+    assert abaixo.destaque == "Obesidade e Asma" and abaixo.texto.startswith(" aparecem com letalidade menor")
+
+
+def test_juntar_nomes():
+    assert juntar_nomes([]) == "" and juntar_nomes(["A"]) == "A"
+    assert juntar_nomes(["A", "B"]) == "A e B" and juntar_nomes(["A", "B", "C"]) == "A, B e C"

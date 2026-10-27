@@ -93,3 +93,13 @@ def test_cores_de_destaque_sao_hexadecimais_validos(nome):
 
     assert len(cor) == 7 and cor.startswith("#")
     int(cor[1:], 16)
+
+
+def test_achados_escapam_o_texto_e_marcam_o_aviso():
+    from componentes import html_achados
+    from indicadores import Achado
+
+    html = html_achados([Achado("<b>X</b>", " & texto"), Achado("Atenção:", " cuidado", atencao=True)])
+
+    assert "&lt;b&gt;X&lt;/b&gt;" in html and "&amp; texto" in html
+    assert html.count('class="cv-achado cv-atencao"') == 1 and html.count('class="cv-achado"') == 1

@@ -4,18 +4,17 @@
 import pandas as pd
 import streamlit as st
 
-from componentes import exibir_grafico, html_celulas, html_kpi, html_titulo_painel, titulo_painel
+from componentes import exibir_grafico, html_achados, html_celulas, html_kpi, html_titulo_painel, titulo_painel
 from config import (
     CAMINHO_AGREGADO,
     CAMINHO_RESUMO_GERAL,
     CAMINHO_TODOS_ANOS,
     COR_COM_COMORBIDADE,
     COR_SEM_COMORBIDADE,
-    COR_TEXTO,
     NOMES_COMORBIDADES,
 )
 from graficos import figura_dumbbell, figura_por_ano
-from indicadores import celulas_da_comorbidade, kpis_comorbidades, preparar_agregado
+from indicadores import achados_comorbidades, celulas_da_comorbidade, kpis_comorbidades, preparar_agregado
 
 _agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
 _resumo = pd.read_csv(CAMINHO_RESUMO_GERAL)
@@ -52,41 +51,9 @@ with col_a.container(border=True, key="painel_explorar"):
     if _parciais:
         st.caption(f"Ano parcial (hachurado): {_parciais}.")
 
-col_b.markdown(
-    f"""
-    <div style="background:{COR_SEM_COMORBIDADE}26; border-left:4px solid {COR_COM_COMORBIDADE};
-                border-radius:6px; padding:1rem 1.25rem; margin-bottom:1.25rem;">
-        <div style="font-weight:600; font-size:1.05rem; margin-bottom:0.6rem; color:{COR_TEXTO};">
-            Principais achados
-        </div>
-        <p style="color:{COR_TEXTO}; margin:0 0 0.75rem 0; line-height:1.55;">
-            Das 11 comorbidades analisadas, a <strong>Doença Renal Crônica</strong> aparece com o
-            maior risco: pacientes com essa condição têm uma taxa de letalidade de COVID-19
-            quase <strong>1,5 vez maior</strong> do que pacientes sem ela (53% contra 37%, somando
-            os 7 anos de dados). <strong>Doença Hepática Crônica</strong> aparece logo atrás (51%),
-            seguida por Doença Neurológica e Pneumopatia, numa faixa de risco também alta.
-        </p>
-        <p style="color:{COR_TEXTO}; margin:0 0 0.75rem 0; line-height:1.55;">
-            O número de casos caiu de forma acentuada depois do início da vacinação no Brasil
-            (17/01/2021), como fica visível no gráfico de linha do tempo mais abaixo. É importante
-            não interpretar isso como uma prova direta de causa e efeito: no mesmo período, outros
-            fatores — como isolamento social e a evolução natural da pandemia — também
-            influenciaram essa queda. A vacinação está marcada no gráfico só como referência
-            temporal.
-        </p>
-        <p style="color:{COR_TEXTO}; margin:0; line-height:1.55;">
-            Um ponto de atenção importante: como muitos pacientes têm mais de uma comorbidade ao
-            mesmo tempo, o grupo "sem" determinada condição não representa pessoas saudáveis — só
-            pessoas sem aquela condição específica, que podem ter outras. É por isso, por exemplo,
-            que <strong>Asma</strong> e <strong>Obesidade</strong> aparecem com letalidade menor que
-            a média geral: não é porque essas condições protegem contra COVID-19, e sim,
-            provavelmente, porque pacientes com essas comorbidades tendem a ser mais jovens em
-            média — e a idade em si é um forte fator de risco separado.
-        </p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+with col_b.container(border=True, key="painel_achados"):
+    titulo_painel("Principais achados")
+    st.html(html_achados(achados_comorbidades(_agregado)))
 
 df = pd.read_csv(CAMINHO_AGREGADO)
 df["comorbidade"] = df["comorbidade"].map(NOMES_COMORBIDADES)

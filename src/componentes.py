@@ -66,6 +66,15 @@ def html_celulas(celulas: list) -> str:
     return '<div class="cv-celulas">' + "".join(partes) + "</div>"
 
 
+def html_achados(achados: list) -> str:
+    """Cartões de texto: o destaque em negrito (colorido no aviso) e o texto em seguida."""
+    cartoes = []
+    for a in achados:
+        classe = "cv-achado cv-atencao" if a.atencao else "cv-achado"
+        cartoes.append(f'<div class="{classe}"><strong>{escape(a.destaque)}</strong>{escape(a.texto)}</div>')
+    return '<div class="cv-achados">' + "".join(cartoes) + "</div>"
+
+
 def html_titulo_painel(titulo: str, ajuda: str | None = None) -> str:
     """Título pequeno de painel, em caixa alta, com "?" opcional."""
     return f'<div class="cv-cabecalho"><p class="cv-secao">{escape(titulo)}{_marca_ajuda(ajuda)}</p></div>'

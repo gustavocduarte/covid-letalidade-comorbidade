@@ -41,6 +41,10 @@ CSS_DA_PAGINA = Template("""<style>
 .cv-celula { background: $painel; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
 .cv-valor-medio { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums;
   font-size: 1.35rem; font-weight: 600; color: $texto; }
+.cv-achados { display: flex; flex-direction: column; gap: 12px; font-size: 13px; line-height: 1.55; }
+.cv-achado { border: 1px solid $borda; border-radius: 8px; padding: 12px 14px; }
+.cv-atencao { border-color: rgba(250, 204, 21, .4); background: rgba(250, 204, 21, .05); }
+.cv-atencao strong { color: #FACC15; }
 .cv-legenda { display: flex; gap: 1rem; font-size: 12px; color: $secundario; margin: .25rem 0; }
 .cv-legenda span { display: flex; align-items: center; gap: 6px; }
 .cv-legenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
