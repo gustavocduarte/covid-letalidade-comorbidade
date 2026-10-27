@@ -156,7 +156,7 @@ def test_serie_semanal_por_comorbidade_valores_calculados_a_mao(con):
 
 
 def test_serie_semanal_por_estado_igual_ao_pandas(con, casos_pandas, assert_iguais):
-    # gerar_serie_estado.py roda a função pandas sobre os casos de todos os anos juntos
+    # a versão pandas roda a função sobre os casos de todos os anos juntos
     esperado = serie_semanal_por_estado_pandas(pd.concat(list(casos_pandas.values()), ignore_index=True))
 
     assert_iguais(serie_semanal_por_estado(con), esperado)

@@ -108,22 +108,55 @@ O pipeline usa DuckDB e requests, que o `requirements.txt` do dashboard não tra
 
 ```bash
 pip install -e .
-python src/pipeline.py
+python src/cli.py pipeline
 ```
+
+Os comandos da linha de comando (`python src/cli.py --help`):
+
+| Comando | O que faz |
+|---|---|
+| `pipeline` | baixa e converte só o que for preciso, valida e grava os CSVs de saída |
+| `serie-estado` | regera só a série semanal por estado, a partir dos Parquets (sem baixar nem converter) |
+| `geo` | baixa o contorno dos 27 estados na API do IBGE e confere cada sigla (passo 6) |
+| `tudo` | `geo` (só se `data/geo/brasil_estados.geojson` não existir) e depois `pipeline` |
+
+Opções do `pipeline` e do `tudo`:
+
+- `--anos 2026` ou `--anos 2020 2022-2024`: baixa e converte só esses anos. As saídas
+  (CSVs e relatório) sempre cobrem todos os anos; se faltar o Parquet de algum ano, o
+  comando para sem gravar nada e diz qual comando rodar.
+- `--forcar`: reconverte os anos escolhidos mesmo que já estejam em dia.
+- `--rebaixar`: baixa de novo o CSV bruto dos anos escolhidos e o converte.
+
+Código de saída: `0` ok, `1` validação reprovada, `2` uso incorreto (por exemplo, um ano
+sem arquivo conhecido) e `3` faltam Parquets de anos que não foram processados.
+
+**Execução incremental.** `data/processed/detalhado/estado.json` (fora do git) guarda, por ano,
+de qual CSV (URL, tamanho e data de modificação) e de qual versão da conversão
+(`VERSAO_CONVERSAO` em `config.py`) veio o Parquet. Um ano é pulado quando o Parquet existe e
+tudo isso confere; o CSV só é baixado se não existir em `data/raw/`. O estado é só uma dica: o
+disco manda (Parquet apagado ou estado ilegível significam reconverter). Com os dados reais, a
+segunda execução seguida leva uns 9 s (contra uns 40 s da primeira), porque só calcula,
+valida e grava as saídas. Os CSVs e o Parquet são gravados num arquivo parcial e renomeados
+no fim, então uma interrupção não deixa arquivo pela metade.
+
+*Ideia futura:* o arquivo do ano corrente é um banco "vivo", atualizado toda semana na fonte,
+e hoje só é rebaixado com `--rebaixar`. Dá para detectar a atualização com uma requisição
+HEAD à URL, comparando `ETag` ou `Content-Length` com o que foi baixado.
 
 ### 6. Baixar o contorno geográfico dos estados (pro mapa) — opcional
 
 ```bash
-python src/baixar_geojson.py
+python src/cli.py geo
 ```
 
 ### 7. Regerar só a série semanal de casos por estado — opcional
 
-O `pipeline.py` já gera essa série. Este script a regera a partir dos Parquets, sem baixar
+O `pipeline` já gera essa série. Este comando a regera a partir dos Parquets, sem baixar
 nem converter nada:
 
 ```bash
-python src/gerar_serie_estado.py
+python src/cli.py serie-estado
 ```
 
 ### 8. Rodar o dashboard
@@ -167,7 +200,8 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
 2. `consultas.py` calcula letalidade por comorbidade e por estado e as séries semanais
    direto nos Parquets (uma view `casos` sobre `ano=*/`).
 3. `validacao.py` confere os dados e as tabelas calculadas (veja "Validação dos dados" abaixo).
-4. `pipeline.py` orquestra os passos e, se a validação passar, grava os CSVs com `load.py`.
+4. `pipeline.py` orquestra os passos (só refaz os anos que mudaram) e, se a validação passar,
+   grava os CSVs com `load.py`. `cli.py` é a linha de comando que o chama.
 
 **Memória e tamanho.** A conversão e as consultas rodam com o DuckDB limitado a 400 MB
 (o excedente iria para disco temporário). Medido com o pandas como referência:
@@ -209,7 +243,7 @@ covid-letalidade-comorbidade/
 ├── data/
 │   ├── raw/          # CSVs brutos do SIVEP-Gripe, um por ano (gerado pelo passo 5)
 │   ├── processed/    # Dados já tratados, usados pelo dashboard (gerado pelos passos 5-7)
-│   │   ├── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet), fora do git
+│   │   ├── detalhado/  # Parquets por ano (ano=AAAA/casos.parquet) e estado.json, fora do git
 │   │   └── relatorio_qualidade.json  # Relatório da validação (versionado)
 │   └── geo/          # Contorno geográfico dos estados em GeoJSON (gerado pelo passo 6)
 ├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF) e texto extraído
@@ -222,9 +256,10 @@ covid-letalidade-comorbidade/
 │   ├── config.py               # Caminhos, URLs, colunas e códigos de domínio
 │   ├── validacao.py            # Verificações de qualidade (SQL sobre os Parquets) e relatório
 │   ├── qualidade.py            # Lê o relatório para o aviso do dashboard
-│   ├── pipeline.py             # Orquestra E-T-L pros 7 anos, um de cada vez
-│   ├── baixar_geojson.py       # Baixa e verifica o contorno dos 27 estados (API do IBGE)
-│   ├── gerar_serie_estado.py   # Gera a série semanal de casos por estado
+│   ├── estado.py               # Estado incremental: o que já foi convertido em cada ano
+│   ├── pipeline.py             # Orquestra E-T-L pros 7 anos, pulando os que estão em dia
+│   ├── cli.py                  # Linha de comando: geo, pipeline, serie-estado, tudo
+│   ├── geo.py                  # Baixa e verifica o contorno dos 27 estados (API do IBGE)
 │   └── dashboard.py            # O dashboard Streamlit em si
 ├── tests/
 │   ├── test_transform.py       # Testes da lógica de transformação (versão pandas)
@@ -233,7 +268,10 @@ covid-letalidade-comorbidade/
 │   ├── test_travas.py          # As travas de teste: sem rede e sem escrita em data/
 │   ├── test_validacao.py       # Verificações, invariantes e relatório de qualidade
 │   ├── test_qualidade.py       # Aviso de casos sem estado (lógica e dashboard renderizado)
-│   ├── test_pipeline_e2e.py    # Pipeline de ponta a ponta sobre uma amostra sintética
+│   ├── test_estado.py          # Estado do pipeline incremental
+│   ├── test_extract.py         # Download atômico do CSV bruto
+│   ├── test_cli.py             # Subcomandos, --anos e códigos de saída
+│   ├── test_pipeline_e2e.py    # Pipeline (pela CLI) de ponta a ponta, inclusive o incremental, sobre uma amostra sintética
 │   ├── test_golden.py          # Regressão: pipeline completo vs. CSVs versionados (só local)
 │   ├── golden/                 # Resumo versionado dos Parquets (referência do teste golden)
 │   └── fixtures/               # Amostra sintética do SIVEP-Gripe usada nos testes

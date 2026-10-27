@@ -1,7 +1,7 @@
 # Ambiente virtual — cada pessoa recria o seu (veja o README)
 .venv/
 
-# Dados brutos baixados do SIVEP-Gripe (~4,9 GB) — reproduzíveis rodando src/pipeline.py
+# Dados brutos baixados do SIVEP-Gripe (~4,9 GB) — reproduzíveis rodando `python src/cli.py pipeline`
 data/raw/
 
 # Cache/arquivos temporários gerados automaticamente
@@ -23,7 +23,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Cache intermediário grande (~140 MB), regenerável por src/pipeline.py
+# Cache intermediário grande (~140 MB), regenerável por `python src/cli.py pipeline`
 data/processed/casos_covid_detalhado.csv
 data/processed/*_detalhado.csv
 

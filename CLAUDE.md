@@ -58,6 +58,10 @@ pip install -r requirements.txt -e ".[dev]"   # dependências (dashboard + pipel
 pytest                            # testes (sem o golden)
 pytest -m golden                  # regressão do pipeline completo (~3 min, precisa de data/raw)
 ruff check .                      # lint
-python src/pipeline.py            # ETL completo (baixa ~4,9 GB na primeira vez)
+python src/cli.py pipeline        # ETL incremental (baixa ~4,9 GB na primeira vez)
+python src/cli.py pipeline --anos 2026   # só atualiza o ano 2026 (as saídas cobrem todos os anos)
+python src/cli.py serie-estado    # regera só a série semanal por estado
+python src/cli.py geo             # baixa o contorno dos estados (IBGE)
+python src/cli.py tudo            # geo (se faltar) + pipeline
 streamlit run src/dashboard.py    # dashboard em http://localhost:8501
 ```
