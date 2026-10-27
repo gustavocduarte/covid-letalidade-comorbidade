@@ -7,7 +7,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
-from config import LIMITES_DO_MAPA, PAGINAS, ROTULOS_FORA_DO_ESTADO
+from config import LIMITES_DO_MAPA, PAGINAS, SIGLAS_DE_ESTADOS_PEQUENOS, TAMANHO_ROTULO_ESTADO_PEQUENO
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
@@ -107,13 +107,13 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     assert geo["lataxis"]["range"] == list(LIMITES_DO_MAPA["lat"])
 
 
-def test_mapa_de_estados_mostra_os_27_numeros_e_os_8_pequenos_ficam_fora_dos_estados():
+def test_mapa_de_estados_mostra_os_27_numeros_nos_centros_e_menores_nos_8_pequenos():
     tela = _tela_de_tempo()
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
     mapa = next(m for m in mapas if any(t["type"] == "choropleth" for t in m["data"]))
 
-    textos = [t for t in mapa["data"] if t["type"] == "scattergeo" and t.get("mode") == "text"]
-    numeros = [n for t in textos for n in t["text"]]
-    assert len(numeros) == 27 and "665.970" in numeros  # São Paulo tem número
-    fora = textos[-1]  # o último grupo são os números nas posições fixas, fora dos estados
-    assert sorted(zip(fora["lon"], fora["lat"], strict=True)) == sorted(ROTULOS_FORA_DO_ESTADO.values())
+    textos = [t for t in mapa["data"] if t["type"] == "scattergeo"]
+    assert all(t["mode"] == "text" for t in textos)  # sem linhas nem rótulos fora dos estados
+    assert sum(len(t["text"]) for t in textos) == 27 and "665.970" in [n for t in textos for n in t["text"]]
+    pequenos = sum(len(t["text"]) for t in textos if t["textfont"]["size"] == TAMANHO_ROTULO_ESTADO_PEQUENO)
+    assert pequenos == len(SIGLAS_DE_ESTADOS_PEQUENOS) == 8

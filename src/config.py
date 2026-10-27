@@ -225,12 +225,9 @@ TIPOS_DE_MAPA = ("Mapa", "Blocos")
 # Estados já marcados ao comparar as curvas, e o máximo que cabe nas cores da paleta de séries.
 ESTADOS_COMPARADOS_INICIAIS = ("MG", "RJ", "SP")
 MAXIMO_ESTADOS_COMPARADOS = 6
-# Estados pequenos demais para o número de casos caber sobre eles no mapa: o número vai para uma posição fixa
-# (lon, lat), no mar ou ao lado, ligada ao estado por uma linha fina. Os do Nordeste ficam empilhados à direita da
-# costa, ES e RJ no mar do Sudeste e o DF ao lado, com uma linha curta.
-ROTULOS_FORA_DO_ESTADO = {
-    "RN": (-31.5, -4.0), "PB": (-31.5, -6.3), "PE": (-31.5, -8.6), "AL": (-31.5, -10.9), "SE": (-31.5, -13.2),
-    "ES": (-36.5, -19.8), "RJ": (-37.5, -23.4), "DF": (-45.0, -15.4),
-}
+# Estados pequenos, onde o número de casos tem fonte menor para não embolar sem zoom.
+SIGLAS_DE_ESTADOS_PEQUENOS = ("RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF")
+TAMANHO_ROTULO_ESTADO = 8
+TAMANHO_ROTULO_ESTADO_PEQUENO = 6
 # Limites fixos do mapa: o Brasil mais a faixa de mar onde ficam os números fora dos estados.
 LIMITES_DO_MAPA = {"lon": (-74.5, -28.0), "lat": (-34.5, 6.0)}

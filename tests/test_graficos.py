@@ -249,16 +249,8 @@ def test_hover_unificado_das_series_tem_a_data_em_dd_mm_aaaa_no_titulo():
     assert all("%{x" not in t.hovertemplate for t in figura.data)  # a data já vem no título do hover
 
 
-def test_rotulos_fora_do_estado_sao_os_8_pequenos_dentro_dos_limites_e_sem_sobreposicao():
-    from config import LIMITES_DO_MAPA, ROTULOS_FORA_DO_ESTADO
+def test_estados_pequenos_sao_os_8_do_litoral_e_o_df():
+    from config import SIGLAS_DE_ESTADOS_PEQUENOS, TAMANHO_ROTULO_ESTADO, TAMANHO_ROTULO_ESTADO_PEQUENO
 
-    assert set(ROTULOS_FORA_DO_ESTADO) == {"RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF"}
-    largura, altura = 2.6, 1.4  # em graus: o número mais largo ("665.970") ocupa a partir da posição, para a direita
-    (lon_min, lon_max), (lat_min, lat_max) = LIMITES_DO_MAPA["lon"], LIMITES_DO_MAPA["lat"]
-    posicoes = list(ROTULOS_FORA_DO_ESTADO.items())
-    for sigla, (lon, lat) in posicoes:
-        assert lon_min <= lon and lon + largura <= lon_max and lat_min <= lat <= lat_max, sigla
-    for i, (a, (lon_a, lat_a)) in enumerate(posicoes):
-        for b, (lon_b, lat_b) in posicoes[i + 1:]:
-            sobrepoe = abs(lon_a - lon_b) < largura and abs(lat_a - lat_b) < altura
-            assert not sobrepoe, f"{a} e {b} se sobrepõem"
+    assert set(SIGLAS_DE_ESTADOS_PEQUENOS) == {"RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF"}
+    assert TAMANHO_ROTULO_ESTADO_PEQUENO < TAMANHO_ROTULO_ESTADO

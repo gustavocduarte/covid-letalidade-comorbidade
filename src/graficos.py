@@ -14,12 +14,13 @@ from config import (
     COR_FUNDO_PAGINA,
     COR_PRINCIPAL,
     COR_SEM_COMORBIDADE,
-    COR_TEXTO,
     ESCALA_LETALIDADE,
     GRADE_ESTADOS,
     LIMITES_DO_MAPA,
-    ROTULOS_FORA_DO_ESTADO,
     SEQUENCIA_CORES_SERIES,
+    SIGLAS_DE_ESTADOS_PEQUENOS,
+    TAMANHO_ROTULO_ESTADO,
+    TAMANHO_ROTULO_ESTADO_PEQUENO,
 )
 from formatacao import fmt_decimal, fmt_inteiro, fmt_pontos
 from indicadores import COR_DA_CLASSE, classe_da_diferenca
@@ -162,11 +163,10 @@ def figura_serie_semanal(
 
 
 TITULO_ESCALA_LETALIDADE = "Letalidade (%)"
-TAMANHO_ROTULO_MAPA = 8
 
 
 def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
-    """Mapa dos estados coloridos pela letalidade, com o número de casos nos estados em que ele cabe.
+    """Mapa dos estados coloridos pela letalidade, com o número de casos sobre cada estado (menor nos pequenos).
 
     `estados` sai de `preparar_estados`. É um mapa vetorial (`go.Choropleth` em SVG): sem mapa-base, sem serviço
     externo e com o enquadramento calculado pelo próprio Plotly, que acompanha a largura do quadro.
@@ -178,14 +178,14 @@ def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
         marker={"line": {"color": COR_FUNDO_PAGINA, "width": 0.8}},
         colorbar={"title": {"text": TITULO_ESCALA_LETALIDADE}, "thickness": 10},
     ))
-    # textfont.color só aceita uma cor por camada: um grupo de rótulos para cada cor.
-    dentro = estados[~estados["sigla"].isin(ROTULOS_FORA_DO_ESTADO)]
-    for cor, grupo in dentro.groupby("cor_rotulo"):
+    # textfont só aceita uma cor e um tamanho por camada: um grupo de rótulos para cada combinação.
+    estados = estados.assign(pequeno=estados["sigla"].isin(SIGLAS_DE_ESTADOS_PEQUENOS))
+    for (cor, pequeno), grupo in estados.groupby(["cor_rotulo", "pequeno"]):
         figura.add_trace(go.Scattergeo(
             lat=grupo["lat_centro"], lon=grupo["lon_centro"], mode="text", text=grupo["casos_fmt"],
-            textfont={"size": TAMANHO_ROTULO_MAPA, "color": cor}, hoverinfo="skip", showlegend=False,
+            textfont={"size": TAMANHO_ROTULO_ESTADO_PEQUENO if pequeno else TAMANHO_ROTULO_ESTADO, "color": cor},
+            hoverinfo="skip", showlegend=False,
         ))
-    figura.add_traces(_rotulos_fora_do_estado(estados))
     aplicar_template_grafico(figura)
     figura.update_geos(
         lonaxis_range=list(LIMITES_DO_MAPA["lon"]), lataxis_range=list(LIMITES_DO_MAPA["lat"]), visible=False,
@@ -193,28 +193,6 @@ def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
     )
     figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
     return figura
-
-
-def _rotulos_fora_do_estado(estados: pd.DataFrame) -> list[go.Scattergeo]:
-    """Linhas finas do centro de cada estado pequeno até o número de casos, que fica numa posição fixa fora dele."""
-    fora = estados[estados["sigla"].isin(ROTULOS_FORA_DO_ESTADO)]
-    lon_linha, lat_linha, lon_texto, lat_texto = [], [], [], []
-    for estado in fora.itertuples():
-        lon, lat = ROTULOS_FORA_DO_ESTADO[estado.sigla]
-        lon_linha += [estado.lon_centro, lon, None]
-        lat_linha += [estado.lat_centro, lat, None]
-        lon_texto.append(lon)
-        lat_texto.append(lat)
-    return [
-        go.Scattergeo(
-            lon=lon_linha, lat=lat_linha, mode="lines", line={"color": COR_EIXO, "width": 0.8},
-            hoverinfo="skip", showlegend=False,
-        ),
-        go.Scattergeo(
-            lon=lon_texto, lat=lat_texto, mode="text", text=fora["casos_fmt"], textposition="middle right",
-            textfont={"size": TAMANHO_ROTULO_MAPA, "color": COR_TEXTO}, hoverinfo="skip", showlegend=False,
-        ),
-    ]
 
 
 def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:
