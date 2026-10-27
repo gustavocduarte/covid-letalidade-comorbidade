@@ -9,6 +9,10 @@ PASTA_GEO = RAIZ / "data" / "geo"
 # Um Parquet por ano (ano=AAAA/casos.parquet), só com os casos de COVID e as colunas usadas.
 PASTA_DETALHADO = PROCESSED_DIR / "detalhado"
 NOME_PARQUET_ANO = "casos.parquet"
+# O que já foi convertido em cada ano (fica ao lado dos Parquets, fora do git).
+NOME_ESTADO_PIPELINE = "estado.json"
+# Sobe quando muda a conversão (colunas, filtro, tipos): força reconverter todos os anos.
+VERSAO_CONVERSAO = 1
 CAMINHO_GEOJSON = PASTA_GEO / "brasil_estados.geojson"
 
 # URLs oficiais do banco de SRAG por ano, hospedadas pelo Ministério da Saúde (OpenDataSUS).
