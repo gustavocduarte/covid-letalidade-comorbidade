@@ -6,12 +6,16 @@ import pandas as pd
 
 from config import (
     COR_COM_COMORBIDADE,
+    COR_POSITIVO,
     COR_PRINCIPAL,
+    COR_TEXTO_SECUNDARIO,
     FAIXA_NEUTRA_PP,
     LIMITE_AMOSTRA_PEQUENA,
     NOMES_COMORBIDADES,
 )
-from formatacao import fmt_inteiro, fmt_percentual, fmt_pontos
+from formatacao import fmt_inteiro, fmt_percentual, fmt_pontos, fmt_razao
+
+COR_DA_CLASSE = {"alta": COR_COM_COMORBIDADE, "neutra": COR_TEXTO_SECUNDARIO, "baixa": COR_POSITIVO}
 
 
 def preparar_agregado(agregado: pd.DataFrame) -> pd.DataFrame:
@@ -77,4 +81,15 @@ def kpis_comorbidades(agregado_preparado: pd.DataFrame, resumo: pd.DataFrame) ->
             cor=COR_COM_COMORBIDADE,
             ajuda="Maior diferença de letalidade entre quem tem e quem não tem a comorbidade"),
         Kpi("Comorbidades analisadas", str(len(agregado_preparado)), "Tabagismo fora: campo vazio na base"),
+    ]
+
+
+def celulas_da_comorbidade(linha: pd.Series) -> list[Kpi]:
+    """As três células da comorbidade escolhida: letalidade com, sem e a diferença entre as duas."""
+    pontos = linha["diferenca_pp"]
+    return [
+        Kpi("Com a comorbidade", fmt_percentual(linha["taxa_letalidade_com"]), f"{fmt_inteiro(linha['casos_com'])} casos",
+            cor=COR_COM_COMORBIDADE),
+        Kpi("Sem a comorbidade", fmt_percentual(linha["taxa_letalidade_sem"]), f"{fmt_inteiro(linha['casos_sem'])} casos"),
+        Kpi("Diferença", fmt_pontos(pontos), fmt_razao(linha["razao"]), cor=COR_DA_CLASSE[classe_da_diferenca(pontos)]),
     ]

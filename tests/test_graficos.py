@@ -11,7 +11,7 @@ from config import (
     COR_TEXTO_SECUNDARIO,
     LIMITE_AMOSTRA_PEQUENA,
 )
-from graficos import OPACIDADE_AMOSTRA_PEQUENA, figura_dumbbell
+from graficos import OPACIDADE_AMOSTRA_PEQUENA, figura_dumbbell, figura_por_ano
 from indicadores import preparar_agregado
 
 
@@ -73,3 +73,32 @@ def test_dumbbell_com_o_agregado_versionado_tem_onze_linhas_e_a_renal_no_topo():
 
     assert len(figura.data[2].y) == 11
     assert figura.data[2].y[0] == "Doença Renal Crônica"
+
+
+def _todos_anos() -> pd.DataFrame:
+    return pd.DataFrame({
+        "ano": [2020, 2021, 2022, 2020],
+        "ano_completo": [True, True, False, True],
+        "comorbidade": ["RENAL", "RENAL", "RENAL", "ASMA"],
+        "casos_com": [28296, 30000, 1200, 10],
+        "taxa_letalidade_com": [0.5707, 0.55, 0.40, 0.2],
+    })
+
+
+def test_figura_por_ano_tem_uma_barra_por_ano_e_hachura_o_ano_parcial():
+    figura = figura_por_ano(_todos_anos(), "RENAL")
+
+    barras = figura.data[0]
+    assert list(barras.x) == ["2020", "2021", "2022"]
+    assert list(barras.y) == pytest.approx([57.07, 55.0, 40.0])
+    assert list(barras.marker.opacity) == [1, 1, 0.45]
+    assert list(barras.marker.pattern.shape) == ["", "", "/"]
+    assert barras.customdata[2] == "1.200 casos (ano parcial)" and barras.customdata[0] == "28.296 casos"
+
+
+def test_figura_por_ano_so_da_comorbidade_pedida_e_comeca_do_zero():
+    figura = figura_por_ano(_todos_anos(), "ASMA")
+
+    assert list(figura.data[0].x) == ["2020"]
+    assert figura.layout.yaxis.range[0] == 0 and figura.layout.yaxis.range[1] > 20
+    assert figura.layout.paper_bgcolor == "rgba(0,0,0,0)"

@@ -3,8 +3,17 @@
 import pandas as pd
 import pytest
 
-from config import CAMINHO_AGREGADO, CAMINHO_RESUMO_GERAL, FAIXA_NEUTRA_PP, LIMITE_AMOSTRA_PEQUENA
+from config import (
+    CAMINHO_AGREGADO,
+    CAMINHO_RESUMO_GERAL,
+    COR_COM_COMORBIDADE,
+    COR_POSITIVO,
+    COR_TEXTO_SECUNDARIO,
+    FAIXA_NEUTRA_PP,
+    LIMITE_AMOSTRA_PEQUENA,
+)
 from indicadores import (
+    celulas_da_comorbidade,
     classe_da_diferenca,
     kpis_comorbidades,
     maior_risco,
@@ -17,6 +26,7 @@ def _agregado_pequeno() -> pd.DataFrame:
     return pd.DataFrame({
         "comorbidade": ["ASMA", "RENAL", "SIND_DOWN"],
         "casos_com": [20000, 50000, LIMITE_AMOSTRA_PEQUENA - 1],
+        "casos_sem": [800000, 760000, 810000],
         "taxa_letalidade_com": [0.25, 0.50, 0.40],
         "taxa_letalidade_sem": [0.35, 0.40, 0.40],
     })
@@ -83,3 +93,18 @@ def test_maior_risco_e_a_maior_diferenca():
     df = preparar_agregado(_agregado_pequeno())
 
     assert maior_risco(df)["comorbidade"] == "RENAL"
+
+
+def test_celulas_da_comorbidade_mostram_com_sem_e_diferenca_com_a_cor_da_faixa():
+    df = preparar_agregado(_agregado_pequeno()).set_index("comorbidade", drop=False)
+
+    renal = {c.rotulo: c for c in celulas_da_comorbidade(df.loc["RENAL"])}
+    asma = {c.rotulo: c for c in celulas_da_comorbidade(df.loc["ASMA"])}
+    down = {c.rotulo: c for c in celulas_da_comorbidade(df.loc["SIND_DOWN"])}
+
+    assert [renal[r].valor for r in ("Com a comorbidade", "Sem a comorbidade", "Diferença")] == ["50,0%", "40,0%", "+10,0 p.p."]
+    assert renal["Com a comorbidade"].linha == "50.000 casos"
+    assert renal["Diferença"].linha == "1,2 vez maior"
+    assert renal["Diferença"].cor == COR_COM_COMORBIDADE
+    assert asma["Diferença"].cor == COR_POSITIVO and asma["Diferença"].valor == "-10,0 p.p."
+    assert down["Diferença"].cor == COR_TEXTO_SECUNDARIO

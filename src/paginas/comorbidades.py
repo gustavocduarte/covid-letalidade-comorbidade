@@ -4,17 +4,18 @@
 import pandas as pd
 import streamlit as st
 
-from componentes import exibir_grafico, html_kpi, html_titulo_painel
+from componentes import exibir_grafico, html_celulas, html_kpi, html_titulo_painel, titulo_painel
 from config import (
     CAMINHO_AGREGADO,
     CAMINHO_RESUMO_GERAL,
+    CAMINHO_TODOS_ANOS,
     COR_COM_COMORBIDADE,
     COR_SEM_COMORBIDADE,
     COR_TEXTO,
     NOMES_COMORBIDADES,
 )
-from graficos import figura_dumbbell
-from indicadores import kpis_comorbidades, preparar_agregado
+from graficos import figura_dumbbell, figura_por_ano
+from indicadores import celulas_da_comorbidade, kpis_comorbidades, preparar_agregado
 
 _agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
 _resumo = pd.read_csv(CAMINHO_RESUMO_GERAL)
@@ -36,73 +37,22 @@ with st.container(border=True, key="painel_dumbbell"):
     exibir_grafico(figura_dumbbell(_agregado))
     st.caption("Valores ao passar o mouse: taxa com, taxa sem e número de casos de cada grupo.")
 
-df = pd.read_csv(CAMINHO_AGREGADO)
-df["comorbidade"] = df["comorbidade"].map(NOMES_COMORBIDADES)
-
-# O CSV guarda a taxa em fração (0.571). Convertemos pra porcentagem uma única vez,
-# aqui na camada de apresentação — o arquivo em disco continua em fração.
-df["taxa_letalidade_com"] = df["taxa_letalidade_com"] * 100
-df["taxa_letalidade_sem"] = df["taxa_letalidade_sem"] * 100
-
-df = df.sort_values("taxa_letalidade_com", ascending=False)
-
-st.subheader("Tabela completa")
-# Seleciona só as colunas de exibição — o df também carrega obitos_com/desfecho_conhecido_com
-# etc., usados internamente pra agregar os anos com exatidão, mas que não aparecem na tela.
-df_tabela = df[["comorbidade", "casos_com", "taxa_letalidade_com", "casos_sem", "taxa_letalidade_sem"]].copy()
-df_tabela["casos_com"] = df_tabela["casos_com"].apply(lambda x: f"{x:,}".replace(",", "."))
-df_tabela["casos_sem"] = df_tabela["casos_sem"].apply(lambda x: f"{x:,}".replace(",", "."))
-st.dataframe(
-    df_tabela,
-    hide_index=True,
-    column_config={
-        "comorbidade": st.column_config.TextColumn("Comorbidade"),
-        "casos_com": st.column_config.TextColumn("Casos (com)"),
-        "taxa_letalidade_com": st.column_config.NumberColumn("Taxa de Letalidade % (com)", format="%.1f"),
-        "casos_sem": st.column_config.TextColumn("Casos (sem)"),
-        "taxa_letalidade_sem": st.column_config.NumberColumn("Taxa de Letalidade % (sem)", format="%.1f"),
-    },
-)
-
-st.divider()
-
-st.subheader("Explorar uma comorbidade")
-comorbidade_escolhida = st.selectbox("Escolha uma comorbidade:", df["comorbidade"])
-linha = df[df["comorbidade"] == comorbidade_escolhida].iloc[0]
-
-# Acento de cor nos dois primeiros cartões, ecoando a paleta do gráfico.
-# `key=` no container gera uma classe CSS "st-key-<nome>" exclusiva, que dá
-# pra mirar com CSS customizado sem afetar o cartão "Casos" (sem key/cor).
-st.markdown(
-    f"""
-    <style>
-    div[class*="st-key-card_com"] {{
-        border-color: {COR_COM_COMORBIDADE} !important;
-        border-width: 2px !important;
-    }}
-    div[class*="st-key-card_sem"] {{
-        border-color: {COR_SEM_COMORBIDADE} !important;
-        border-width: 2px !important;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-c1, c2, c3 = st.columns(3)
-with c1.container(border=True, key="card_com"):
-    st.metric(
-        "Letalidade COM a comorbidade", f"{linha['taxa_letalidade_com']:.1f}%",
-        delta=f"{linha['taxa_letalidade_com'] - linha['taxa_letalidade_sem']:.1f} p.p.", delta_color="inverse",
+_todos_anos = pd.read_csv(CAMINHO_TODOS_ANOS)
+col_a, col_b = st.columns(2)
+with col_a.container(border=True, key="painel_explorar"):
+    titulo_painel("Explorar uma comorbidade")
+    nome_escolhido = st.selectbox(
+        "Comorbidade", _agregado["nome"].tolist(), key="comorbidade_explorada", label_visibility="collapsed",
     )
-with c2.container(border=True, key="card_sem"):
-    st.metric("Letalidade SEM a comorbidade", f"{linha['taxa_letalidade_sem']:.1f}%")
-with c3.container(border=True):
-    st.metric("Casos com essa comorbidade", f"{linha['casos_com']:,}".replace(",", "."))
+    _linha = _agregado[_agregado["nome"] == nome_escolhido].iloc[0]
+    st.html(html_celulas(celulas_da_comorbidade(_linha)))
+    st.html('<div class="cv-linha">Letalidade com a comorbidade, por ano</div>')
+    exibir_grafico(figura_por_ano(_todos_anos, _linha["comorbidade"]))
+    _parciais = ", ".join(str(a) for a in sorted(_todos_anos.loc[~_todos_anos["ano_completo"], "ano"].unique()))
+    if _parciais:
+        st.caption(f"Ano parcial (hachurado): {_parciais}.")
 
-st.divider()
-
-st.markdown(
+col_b.markdown(
     f"""
     <div style="background:{COR_SEM_COMORBIDADE}26; border-left:4px solid {COR_COM_COMORBIDADE};
                 border-radius:6px; padding:1rem 1.25rem; margin-bottom:1.25rem;">
@@ -136,6 +86,34 @@ st.markdown(
     </div>
     """,
     unsafe_allow_html=True,
+)
+
+df = pd.read_csv(CAMINHO_AGREGADO)
+df["comorbidade"] = df["comorbidade"].map(NOMES_COMORBIDADES)
+
+# O CSV guarda a taxa em fração (0.571). Convertemos pra porcentagem uma única vez,
+# aqui na camada de apresentação — o arquivo em disco continua em fração.
+df["taxa_letalidade_com"] = df["taxa_letalidade_com"] * 100
+df["taxa_letalidade_sem"] = df["taxa_letalidade_sem"] * 100
+
+df = df.sort_values("taxa_letalidade_com", ascending=False)
+
+st.subheader("Tabela completa")
+# Seleciona só as colunas de exibição — o df também carrega obitos_com/desfecho_conhecido_com
+# etc., usados internamente pra agregar os anos com exatidão, mas que não aparecem na tela.
+df_tabela = df[["comorbidade", "casos_com", "taxa_letalidade_com", "casos_sem", "taxa_letalidade_sem"]].copy()
+df_tabela["casos_com"] = df_tabela["casos_com"].apply(lambda x: f"{x:,}".replace(",", "."))
+df_tabela["casos_sem"] = df_tabela["casos_sem"].apply(lambda x: f"{x:,}".replace(",", "."))
+st.dataframe(
+    df_tabela,
+    hide_index=True,
+    column_config={
+        "comorbidade": st.column_config.TextColumn("Comorbidade"),
+        "casos_com": st.column_config.TextColumn("Casos (com)"),
+        "taxa_letalidade_com": st.column_config.NumberColumn("Taxa de Letalidade % (com)", format="%.1f"),
+        "casos_sem": st.column_config.TextColumn("Casos (sem)"),
+        "taxa_letalidade_sem": st.column_config.NumberColumn("Taxa de Letalidade % (sem)", format="%.1f"),
+    },
 )
 
 with st.expander("Sobre este projeto / Metodologia"):

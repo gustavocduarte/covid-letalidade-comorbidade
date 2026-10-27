@@ -53,6 +53,19 @@ def html_kpi(rotulo: str, valor: str, linha: str = "", cor: str | None = None, a
     )
 
 
+def html_celulas(celulas: list) -> str:
+    """Grade de células lado a lado (rótulo, valor e linha de apoio), como `Kpi`, mas dentro de um painel."""
+    partes = []
+    for c in celulas:
+        estilo = f' style="color:{escape(c.cor)}"' if c.cor else ""
+        partes.append(
+            f'<div class="cv-celula"><span class="cv-linha">{escape(c.rotulo)}</span>'
+            f'<span class="cv-valor-medio"{estilo}>{escape(c.valor)}</span>'
+            f'<span class="cv-linha">{escape(c.linha)}</span></div>'
+        )
+    return '<div class="cv-celulas">' + "".join(partes) + "</div>"
+
+
 def html_titulo_painel(titulo: str, ajuda: str | None = None) -> str:
     """Título pequeno de painel, em caixa alta, com "?" opcional."""
     return f'<div class="cv-cabecalho"><p class="cv-secao">{escape(titulo)}{_marca_ajuda(ajuda)}</p></div>'

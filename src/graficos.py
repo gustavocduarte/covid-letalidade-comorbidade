@@ -9,14 +9,11 @@ from componentes import aplicar_template_grafico
 from config import (
     COR_COM_COMORBIDADE,
     COR_EIXO,
-    COR_POSITIVO,
     COR_SEM_COMORBIDADE,
-    COR_TEXTO_SECUNDARIO,
 )
 from formatacao import fmt_inteiro, fmt_pontos
-from indicadores import classe_da_diferenca
+from indicadores import COR_DA_CLASSE, classe_da_diferenca
 
-COR_DA_CLASSE = {"alta": COR_COM_COMORBIDADE, "neutra": COR_TEXTO_SECUNDARIO, "baixa": COR_POSITIVO}
 ALTURA_POR_LINHA_PX = 36
 OPACIDADE_AMOSTRA_PEQUENA = 0.7
 
@@ -73,4 +70,27 @@ def figura_dumbbell(agregado: pd.DataFrame) -> go.Figure:
     figura.update_layout(
         height=len(nomes) * ALTURA_POR_LINHA_PX + 50, margin={"l": 10, "r": 90, "t": 10, "b": 30}, showlegend=False,
     )
+    return figura
+
+
+def figura_por_ano(todos_anos: pd.DataFrame, comorbidade: str) -> go.Figure:
+    """Letalidade com a comorbidade em cada ano; os anos parciais saem hachurados e mais claros."""
+    df = todos_anos[todos_anos["comorbidade"] == comorbidade].sort_values("ano")
+    completo = df["ano_completo"].tolist()
+    figura = go.Figure(go.Bar(
+        x=df["ano"].astype(str), y=(df["taxa_letalidade_com"] * 100).tolist(),
+        marker={
+            "color": COR_COM_COMORBIDADE,
+            "opacity": [1 if c else 0.45 for c in completo],
+            "pattern": {"shape": ["" if c else "/" for c in completo], "fgcolor": COR_COM_COMORBIDADE},
+        },
+        customdata=[f"{fmt_inteiro(c)} casos" + ("" if ok else " (ano parcial)") for c, ok in zip(df["casos_com"], completo, strict=True)],
+        texttemplate="%{y:.1f}%", textposition="outside", cliponaxis=False,
+        hovertemplate="<b>%{x}</b><br>Letalidade: %{y:.1f}%<br>%{customdata}<extra></extra>",
+    ))
+    aplicar_template_grafico(figura)
+    maximo = max((df["taxa_letalidade_com"] * 100).max(), 1) if len(df) else 1
+    figura.update_yaxes(range=[0, maximo * 1.2], showticklabels=False, showgrid=False)  # os rótulos das barras bastam
+    figura.update_xaxes(showgrid=False, type="category")
+    figura.update_layout(height=220, margin={"l": 10, "r": 10, "t": 20, "b": 30}, showlegend=False)
     return figura

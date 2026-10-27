@@ -36,6 +36,11 @@ CSS_DA_PAGINA = Template("""<style>
   font-size: 1.75rem; font-weight: 600; white-space: nowrap; color: $texto; }
 .cv-linha { font-size: .8rem; color: $secundario; min-height: 1.2em; }
 .cv-cabecalho { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+.cv-celulas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: $borda;
+  border-radius: 8px; overflow: hidden; }
+.cv-celula { background: $painel; padding: 14px; display: flex; flex-direction: column; gap: 4px; }
+.cv-valor-medio { font-family: "JetBrains Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums;
+  font-size: 1.35rem; font-weight: 600; color: $texto; }
 .cv-legenda { display: flex; gap: 1rem; font-size: 12px; color: $secundario; margin: .25rem 0; }
 .cv-legenda span { display: flex; align-items: center; gap: 6px; }
 .cv-legenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
