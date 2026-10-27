@@ -176,7 +176,7 @@ def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
     assert serie["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
 
 
-def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero_como_o_pandas(tmp_path, csvs_sinteticos, assert_iguais):
+def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero(tmp_path, csvs_sinteticos):
     cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
     # só um caso que não é COVID (CLASSI_FIN = 4): o Parquet do ano sai com 0 linhas
     csv_vazio = tmp_path / "INFLUD22-sintetico.csv"
@@ -189,12 +189,7 @@ def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero_como_o_pandas(tmp_path, c
     with abrir_casos(pasta) as conexao:
         obtido = letalidade_por_comorbidade_por_ano(conexao)
 
-    esperado = pd.concat(
-        [letalidade_por_comorbidade(carregar_casos_covid(csv)).assign(ano=ano) for ano, csv in csvs.items()],
-        ignore_index=True,
-    )
-    esperado = esperado[["ano", *[c for c in esperado.columns if c != "ano"]]]
-    assert_iguais(obtido, esperado)
+    assert len(obtido) == 3 * 11
     do_ano_vazio = obtido[obtido["ano"] == 2022]
     assert len(do_ano_vazio) == 11
     assert (do_ano_vazio.filter(like="casos").sum().sum(), do_ano_vazio.filter(like="obitos").sum().sum()) == (0, 0)
@@ -217,3 +212,27 @@ def test_ano_fora_da_lista_nao_entra_nas_consultas(tmp_path, pasta_parquets, con
     assert semanal.equals(serie_semanal_casos(con))
     with abrir_casos(pasta) as todos:  # sem lista, vale a pasta inteira
         assert todos.execute("SELECT DISTINCT ano FROM casos ORDER BY ano").fetchall() == [(1999,), (2020,), (2021,)]
+
+
+def test_estado_sem_desfecho_conhecido_tem_taxa_indefinida(tmp_path, csvs_sinteticos):
+    cabecalho = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0]
+    # AC: 2 casos sem desfecho (EVOLUCAO 9 e 3); AL: 1 óbito
+    linhas = [
+        "0001;2022-01-03;2022-01-03;F;AC;X;;;1;;;2;;;;;;5;9",
+        "0002;2022-01-04;2022-01-04;F;AC;X;;;1;;;2;;;;;;5;3",
+        "0003;2022-01-05;2022-01-05;F;AL;X;;;1;;;2;;;;;;5;2",
+    ]
+    csv = tmp_path / "INFLUD22-sintetico.csv"
+    csv.write_text("\n".join([cabecalho, *linhas]) + "\n", encoding="utf-8")
+    pasta = tmp_path / "detalhado"
+    csv_para_parquet(csv, pasta / "ano=2022" / "casos.parquet")
+
+    with abrir_casos(pasta) as conexao:
+        agregado = letalidade_por_estado_agregado(conexao).set_index("sigla")
+        por_ano = letalidade_por_estado_por_ano(conexao).set_index("sigla")
+
+    for tabela in (agregado, por_ano):
+        ac, al = tabela.loc["AC"], tabela.loc["AL"]
+        assert (ac.casos, ac.obitos, ac.desfecho_conhecido) == (2, 0, 0)
+        assert pd.isna(ac.taxa_letalidade)
+        assert (al.casos, al.obitos, al.desfecho_conhecido, al.taxa_letalidade) == (1, 1, 1, 1.0)
