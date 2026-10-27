@@ -228,6 +228,4 @@ MAXIMO_ESTADOS_COMPARADOS = 6
 # Estados pequenos, onde o número de casos tem fonte menor para não embolar sem zoom.
 SIGLAS_DE_ESTADOS_PEQUENOS = ("RN", "PB", "PE", "AL", "SE", "ES", "RJ", "DF")
 TAMANHO_ROTULO_ESTADO = 8
-TAMANHO_ROTULO_ESTADO_PEQUENO = 6
-# Limites fixos do mapa: o Brasil mais a faixa de mar onde ficam os números fora dos estados.
-LIMITES_DO_MAPA = {"lon": (-74.5, -28.0), "lat": (-34.5, 6.0)}
+TAMANHO_ROTULO_ESTADO_PEQUENO = 7

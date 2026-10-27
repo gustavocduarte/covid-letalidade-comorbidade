@@ -16,7 +16,6 @@ from config import (
     COR_SEM_COMORBIDADE,
     ESCALA_LETALIDADE,
     GRADE_ESTADOS,
-    LIMITES_DO_MAPA,
     SEQUENCIA_CORES_SERIES,
     SIGLAS_DE_ESTADOS_PEQUENOS,
     TAMANHO_ROTULO_ESTADO,
@@ -188,8 +187,7 @@ def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
         ))
     aplicar_template_grafico(figura)
     figura.update_geos(
-        lonaxis_range=list(LIMITES_DO_MAPA["lon"]), lataxis_range=list(LIMITES_DO_MAPA["lat"]), visible=False,
-        projection_type="mercator", bgcolor="rgba(0,0,0,0)",
+        fitbounds="locations", visible=False, projection_type="mercator", bgcolor="rgba(0,0,0,0)",
     )
     figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
     return figura

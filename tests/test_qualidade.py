@@ -7,7 +7,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
-from config import LIMITES_DO_MAPA, PAGINAS, SIGLAS_DE_ESTADOS_PEQUENOS, TAMANHO_ROTULO_ESTADO_PEQUENO
+from config import PAGINAS, SIGLAS_DE_ESTADOS_PEQUENOS, TAMANHO_ROTULO_ESTADO_PEQUENO
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
@@ -102,9 +102,7 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     tipos = {t["type"] for t in mapas[0]["data"]}
     assert tipos == {"choropleth", "scattergeo"}
     assert "map" not in mapas[0]["layout"] and "mapbox" not in mapas[0]["layout"]
-    geo = mapas[0]["layout"]["geo"]
-    assert geo["lonaxis"]["range"] == list(LIMITES_DO_MAPA["lon"])
-    assert geo["lataxis"]["range"] == list(LIMITES_DO_MAPA["lat"])
+    assert mapas[0]["layout"]["geo"]["fitbounds"] == "locations"
 
 
 def test_mapa_de_estados_mostra_os_27_numeros_nos_centros_e_menores_nos_8_pequenos():

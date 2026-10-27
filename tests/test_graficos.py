@@ -190,14 +190,13 @@ def test_blocos_tem_um_por_estado_na_posicao_da_grade_com_sigla_e_taxa():
 
 
 def test_mapa_dos_estados_colore_os_27_estados_pela_letalidade():
-    from config import LIMITES_DO_MAPA
     from graficos import figura_mapa_estados
 
     with open(CAMINHO_GEOJSON, encoding="utf-8") as f:
         figura = figura_mapa_estados(_estados(), json.load(f))
 
     assert figura.data[0].type == "choropleth" and len(figura.data[0].locations) == 27
-    assert list(figura.layout.geo.lonaxis.range) == list(LIMITES_DO_MAPA["lon"]) and not figura.layout.geo.visible
+    assert figura.layout.geo.fitbounds == "locations" and not figura.layout.geo.visible
 
 
 def test_curvas_dos_estados_tem_uma_linha_por_estado_em_percentual_do_pico():
