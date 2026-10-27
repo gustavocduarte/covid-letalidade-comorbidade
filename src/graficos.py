@@ -243,6 +243,7 @@ def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -
     figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
     figura.update_yaxes(
         range=[0, 105], ticksuffix="%", tickvals=[0, 25, 50, 75, 100], tickfont={"color": COR_EIXO, "size": 10},
+        automargin=True,
     )
     figura.update_layout(
         height=ALTURA_SERIE_PX, margin={"l": 10, "r": 10, "t": 10, "b": 30}, hovermode="x unified",
