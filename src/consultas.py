@@ -52,9 +52,8 @@ def _sql_letalidade_por_comorbidade(por_ano: bool) -> str:
     colunas = ", ".join(COMORBIDADES)
     lista = ", ".join(f"'{c}'" for c in COMORBIDADES)
     chave = "ano, " if por_ano else ""
-    # Empate de taxa: a versão pandas mantém a ordem de COMORBIDADES por ano e a ordem alfabética
-    # no agregado (o groupby ordena por nome antes do sort_values).
-    desempate = f"list_position([{lista}], comorbidade)" if por_ano else "comorbidade"
+    # Empate de taxa: vale a ordem de COMORBIDADES, por ano e no agregado.
+    desempate = f"list_position([{lista}], comorbidade)"
 
     def contagens(sufixo: str, codigo: int) -> str:
         return f"""

@@ -7,6 +7,7 @@ import pytest
 
 from consultas import (
     abrir_casos,
+    letalidade_por_comorbidade_agregado,
     letalidade_por_comorbidade_por_ano,
     letalidade_por_estado_agregado,
     letalidade_por_estado_por_ano,
@@ -152,3 +153,21 @@ def test_estado_sem_desfecho_conhecido_tem_taxa_indefinida(tmp_path, csvs_sintet
         assert (ac.casos, ac.obitos, ac.desfecho_conhecido) == (2, 0, 0)
         assert pd.isna(ac.taxa_letalidade)
         assert (al.casos, al.obitos, al.desfecho_conhecido, al.taxa_letalidade) == (1, 1, 1, 1.0)
+
+
+def test_empate_de_taxa_segue_a_ordem_de_comorbidades_no_agregado_e_por_ano(tmp_path, csvs_sinteticos):
+    colunas = csvs_sinteticos[2021].read_text(encoding="utf-8").splitlines()[0].split(";")
+    # um óbito com SIND_DOWN e ASMA: as duas empatam em 100%; na ordem alfabética ASMA viria antes
+    caso = {"NU_NOTIFIC": "1", "DT_SIN_PRI": "2022-01-03", "SG_UF": "SP", "SIND_DOWN": "1", "ASMA": "1",
+            "CLASSI_FIN": "5", "EVOLUCAO": "2"}
+    csv = tmp_path / "INFLUD22-sintetico.csv"
+    csv.write_text(";".join(colunas) + "\n" + ";".join(caso.get(c, "") for c in colunas) + "\n", encoding="utf-8")
+    pasta = tmp_path / "detalhado"
+    csv_para_parquet(csv, pasta / "ano=2022" / "casos.parquet")
+
+    with abrir_casos(pasta) as conexao:
+        agregado = letalidade_por_comorbidade_agregado(conexao)
+        por_ano = letalidade_por_comorbidade_por_ano(conexao)
+
+    for tabela in (agregado, por_ano):
+        assert list(tabela["comorbidade"][:2]) == ["SIND_DOWN", "ASMA"]
