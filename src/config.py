@@ -188,3 +188,8 @@ PAGINAS = (
         descricoes=("Casos semanais de COVID-19 hospitalizados (SRAG) no Brasil e por estado, 2020–2026",),
     ),
 )
+
+# Comorbidade com menos casos que isto tem taxa pouco estável (aviso de "amostra pequena" no dashboard).
+LIMITE_AMOSTRA_PEQUENA = 10_000
+# Diferença de letalidade (em pontos percentuais, em módulo) abaixo da qual o dashboard a trata como neutra.
+FAIXA_NEUTRA_PP = 2.0

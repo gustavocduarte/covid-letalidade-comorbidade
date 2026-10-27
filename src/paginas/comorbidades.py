@@ -5,14 +5,23 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
+from componentes import html_kpi
 from config import (
     CAMINHO_AGREGADO,
+    CAMINHO_RESUMO_GERAL,
     COR_COM_COMORBIDADE,
     COR_GRADE,
     COR_SEM_COMORBIDADE,
     COR_TEXTO,
     NOMES_COMORBIDADES,
 )
+from indicadores import kpis_comorbidades, preparar_agregado
+
+_agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
+_resumo = pd.read_csv(CAMINHO_RESUMO_GERAL)
+st.html('<div class="cv-kpis">' + "".join(
+    html_kpi(k.rotulo, k.valor, k.linha, k.cor, k.ajuda) for k in kpis_comorbidades(_agregado, _resumo)
+) + "</div>")
 
 st.info(
     "**Fonte:** SIVEP-Gripe (SRAG) / Ministério da Saúde, via OpenDataSUS. "
