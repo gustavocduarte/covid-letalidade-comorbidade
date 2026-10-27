@@ -98,3 +98,13 @@ def test_tabela_completa_tem_onze_linhas_numericas_e_botao_de_baixar_o_csv():
     assert len(tabela) == 11 and tabela["taxa_com"].is_monotonic_decreasing
     assert tabela["casos_com"].iloc[0] == 78513  # número, não texto: a ordenação por coluna fica numérica
     assert [b.proto.label for b in tela.get("download_button")] == ["Baixar CSV"]
+
+
+def test_tabela_exibe_os_numeros_em_pt_br_mantendo_os_valores_numericos():
+    import pyarrow as pa
+
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+
+    exibido = pa.ipc.open_stream(tela.dataframe[0].proto.arrow_data.styler.display_values).read_all().to_pandas()
+    assert exibido.iloc[0, 1:6].tolist() == ["78.513", "53,3%", "767.370", "36,9%", "+16,4 p.p."]
+    assert tela.dataframe[0].value["casos_com"].iloc[0] == 78513

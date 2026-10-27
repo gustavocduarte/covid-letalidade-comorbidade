@@ -13,7 +13,7 @@ from config import (
     COR_SEM_COMORBIDADE,
     LIMITE_AMOSTRA_PEQUENA,
 )
-from formatacao import fmt_inteiro
+from formatacao import fmt_inteiro, fmt_percentual, fmt_pontos
 from graficos import figura_dumbbell, figura_por_ano
 from indicadores import (
     COLUNAS_TABELA,
@@ -71,6 +71,9 @@ _estilo = (
     _tabela.style
     .map(cor_da_celula_de_diferenca, subset=["diferenca_pp"])
     .map(lambda _: f"color: {COR_COM_COMORBIDADE}", subset=["taxa_com"])
+    .format(fmt_inteiro, subset=["casos_com", "casos_sem"])
+    .format(lambda v: fmt_percentual(v / 100), subset=["taxa_com", "taxa_sem"])
+    .format(fmt_pontos, subset=["diferenca_pp"])
 )
 with st.container(border=True, key="painel_tabela"):
     _cabecalho, _botao = st.columns([4, 1])
@@ -86,11 +89,11 @@ with st.container(border=True, key="painel_tabela"):
         height="content",
         column_config={
             "nome": st.column_config.TextColumn(COLUNAS_TABELA["nome"]),
-            "casos_com": st.column_config.NumberColumn(COLUNAS_TABELA["casos_com"], format="localized"),
-            "taxa_com": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_com"], format="%.1f%%"),
-            "casos_sem": st.column_config.NumberColumn(COLUNAS_TABELA["casos_sem"], format="localized"),
-            "taxa_sem": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_sem"], format="%.1f%%"),
-            "diferenca_pp": st.column_config.NumberColumn(COLUNAS_TABELA["diferenca_pp"], format="%+.1f p.p."),
+            "casos_com": st.column_config.NumberColumn(COLUNAS_TABELA["casos_com"]),
+            "taxa_com": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_com"]),
+            "casos_sem": st.column_config.NumberColumn(COLUNAS_TABELA["casos_sem"]),
+            "taxa_sem": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_sem"]),
+            "diferenca_pp": st.column_config.NumberColumn(COLUNAS_TABELA["diferenca_pp"]),
             "amostra": st.column_config.TextColumn(
                 COLUNAS_TABELA["amostra"], help=f"Menos de {fmt_inteiro(LIMITE_AMOSTRA_PEQUENA)} casos com a comorbidade",
             ),
@@ -98,7 +101,7 @@ with st.container(border=True, key="painel_tabela"):
     )
     st.caption(
         f"{MARCA_AMOSTRA_PEQUENA} amostra pequena (menos de {fmt_inteiro(LIMITE_AMOSTRA_PEQUENA)} casos com a "
-        "comorbidade): a taxa é menos estável. Os números de casos seguem o formato do seu navegador."
+        "comorbidade): a taxa é menos estável."
     )
 
 with st.expander("Sobre este projeto / Metodologia"):
