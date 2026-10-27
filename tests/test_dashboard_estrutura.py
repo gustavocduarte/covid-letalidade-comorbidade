@@ -32,3 +32,9 @@ def test_dashboard_so_le_os_dados_publicados_e_nao_roda_o_pipeline():
     assert {nome: sorted(mods & proibidos) for nome, mods in importados.items() if mods & proibidos} == {}
     fontes = " ".join(c.read_text(encoding="utf-8") for c in _modulos_do_dashboard())
     assert "PASTA_RAW" not in fontes and "data/raw" not in fontes
+
+
+def test_dashboard_nao_usa_altair():
+    usos = [a.name for a in SRC.rglob("*.py") if "altair" in a.read_text(encoding="utf-8")]
+
+    assert usos == []

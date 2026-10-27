@@ -1,6 +1,6 @@
 # Dependências para rodar o dashboard (o Streamlit Cloud lê este arquivo).
 # As faixas de versão e os extras do projeto ficam em pyproject.toml.
-altair==6.2.2
+jinja2==3.1.6  # o Styler da tabela do Streamlit precisa dele
 pandas==3.0.5
 plotly==7.0.0
 streamlit==1.63.0
