@@ -1,5 +1,7 @@
 """Números da página Linha do tempo e estados."""
 
+from datetime import date
+
 import pandas as pd
 
 from config import DATA_INICIO_VACINACAO
@@ -34,12 +36,12 @@ def test_kpis_do_tempo_trazem_pico_vacinacao_cauda_e_semana_recente():
     })
     resumo = resumo_por_estado(_semanal_estado(), NOMES)
 
-    pico, vacina, cauda, recente = kpis_tempo(semanal, resumo)
+    pico, vacina, cauda, recente = kpis_tempo(semanal, resumo, date(2026, 8, 24))
 
     assert (pico.valor, pico.linha) == ("65.000", "casos na semana de 08/03/2021")
     assert vacina.valor == f"{DATA_INICIO_VACINACAO:%d/%m/%Y}"
     assert (cauda.valor, cauda.linha) == ("2 semanas", "Alfa e Gama")
-    assert (recente.valor, recente.linha) == ("1.234", "casos na semana de 17/08/2026, ainda em notificação")
+    assert (recente.valor, recente.linha) == ("1.234", "casos na semana de 17/08/2026 (base de 24/08/2026), ainda em notificação")
 
 
 def test_kpi_da_cauda_resume_quando_muitos_estados_empatam():
@@ -55,3 +57,11 @@ def test_normalizar_pelo_pico_poe_o_pico_de_cada_estado_em_100():
     por_estado = curvas.groupby("sigla")["pct_do_pico"]
     assert por_estado.max().tolist() == [100, 100, 100]
     assert curvas.loc[(curvas["sigla"] == "AA") & (curvas["casos"] == 50), "pct_do_pico"].iloc[0] == 50
+
+
+def test_cartao_da_semana_recente_sem_data_da_base_nao_cita_a_base():
+    resumo = pd.DataFrame({"nome": ["A"], "semanas_ate_cauda": pd.array([7], dtype="Int64")})
+    semanal = pd.DataFrame({"semana": pd.to_datetime(["2026-08-17"]), "casos": [3]})
+
+    assert kpis_tempo(semanal, resumo)[3].linha == "casos na semana de 17/08/2026, ainda em notificação"
+

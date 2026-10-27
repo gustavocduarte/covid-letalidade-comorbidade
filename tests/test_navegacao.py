@@ -199,3 +199,12 @@ def test_pagina_comorbidades_nao_traz_mais_o_texto_de_metodologia():
     tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
 
     assert [e.label for e in tela.expander] == []
+
+
+def test_cartao_da_semana_mais_recente_cita_a_base_da_barra_lateral():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    assert not tela.exception
+    assert "(base de 24/08/2026), ainda em notificação" in _html(tela)
+    assert "Base do OpenDataSUS de 24/08/2026" in [c.value for c in tela.sidebar.caption]  # a mesma data

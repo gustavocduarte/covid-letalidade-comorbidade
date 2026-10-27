@@ -1,5 +1,7 @@
 """Números da página Linha do tempo e estados, calculados só a partir dos CSVs semanais versionados."""
 
+from datetime import date
+
 import pandas as pd
 
 from config import (
@@ -45,11 +47,16 @@ def _nomes_no_kpi(nomes: list[str]) -> str:
     return juntar_nomes(nomes)
 
 
-def kpis_tempo(semanal: pd.DataFrame, resumo_estados: pd.DataFrame) -> list[Kpi]:
-    """Os quatro números do topo: pico semanal, início da vacinação, cauda mais longa e semana mais recente."""
+def kpis_tempo(semanal: pd.DataFrame, resumo_estados: pd.DataFrame, data_base: date | None = None) -> list[Kpi]:
+    """Os quatro números do topo: pico semanal, início da vacinação, cauda mais longa e semana mais recente.
+
+    `data_base` (a da versão do OpenDataSUS) entra no cartão da semana mais recente, para o leitor saber até quando
+    os registros daquela semana tinham chegado.
+    """
     semanal = semanal.sort_values("semana")
     pico = semanal.loc[semanal["casos"].idxmax()]
     recente = semanal.iloc[-1]
+    base = f" (base de {data_base:%d/%m/%Y})" if data_base else ""
     maior_cauda = resumo_estados["semanas_ate_cauda"].max()
     empatados = resumo_estados.loc[resumo_estados["semanas_ate_cauda"] == maior_cauda, "nome"].tolist()
     return [
@@ -59,7 +66,7 @@ def kpis_tempo(semanal: pd.DataFrame, resumo_estados: pd.DataFrame) -> list[Kpi]
         Kpi("Cauda mais longa", f"{maior_cauda} semanas", _nomes_no_kpi(empatados),
             ajuda="Semanas, depois do pico, até os casos semanais caírem abaixo de "
                   f"{FRACAO_PICO_DA_CAUDA:.0%} do pico do estado"),
-        Kpi("Semana mais recente", fmt_inteiro(recente["casos"]), f"casos na semana de {recente['semana']:%d/%m/%Y}, ainda em notificação"),
+        Kpi("Semana mais recente", fmt_inteiro(recente["casos"]), f"casos na semana de {recente['semana']:%d/%m/%Y}{base}, ainda em notificação"),
     ]
 
 

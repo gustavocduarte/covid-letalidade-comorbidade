@@ -5,6 +5,7 @@ import json
 import pandas as pd
 import streamlit as st
 
+from barra_lateral import data_da_base
 from componentes import exibir_grafico, html_kpi, titulo_painel
 from config import (
     CAMINHO_ESTADO,
@@ -42,7 +43,7 @@ df_semanal_estado = pd.read_csv(CAMINHO_SEMANAL_ESTADO, parse_dates=["semana"])
 resumo_estados = resumo_por_estado(df_semanal_estado, nomes_estados)
 st.html('<div class="cv-kpis">' + "".join(
     html_kpi(k.rotulo, k.valor, k.linha, k.cor, k.ajuda)
-    for k in kpis_tempo(pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"]), resumo_estados)
+    for k in kpis_tempo(pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"]), resumo_estados, data_da_base())
 ) + "</div>")
 
 _semanal = pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"])
