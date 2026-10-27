@@ -211,3 +211,27 @@ def test_curvas_dos_estados_tem_uma_linha_por_estado_em_percentual_do_pico():
     assert [t.name for t in figura.data] == ["Minas Gerais", "São Paulo"]
     assert list(figura.data[1].y) == [25, 100, 50]
     assert list(figura.layout.yaxis.ticktext) == ["0%", "25%", "50%", "75%", "100%"] and figura.layout.yaxis.automargin  # rótulos do eixo não cortam
+
+
+def test_hover_de_todos_os_graficos_tem_fundo_escuro_e_texto_claro():
+    from componentes import FONTE_DOS_GRAFICOS
+    from config import COR_BORDA, COR_FUNDO_PAINEL, COR_TEXTO
+    from graficos import figura_blocos_estados, figura_curvas_estados, figura_mapa_estados, figura_serie_semanal
+    from indicadores_tempo import normalizar_pelo_pico
+
+    estados = _estados()
+    with open(CAMINHO_GEOJSON, encoding="utf-8") as f:
+        geojson = json.load(f)
+    semanal, por_comorbidade = _semanal_e_comorbidades()
+    curvas = normalizar_pelo_pico(semanal.assign(sigla="SP"))
+    figuras = [
+        figura_dumbbell(_agregado()), figura_por_ano(_todos_anos(), "RENAL"), figura_mapa_estados(estados, geojson),
+        figura_blocos_estados(estados), figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17")),
+        figura_curvas_estados(curvas, {"SP": "São Paulo"}),
+    ]
+
+    for figura in figuras:
+        rotulo = figura.layout.hoverlabel
+        assert (rotulo.bgcolor, rotulo.bordercolor) == (COR_FUNDO_PAINEL, COR_BORDA)
+        assert rotulo.font.color == COR_TEXTO and rotulo.font.family == FONTE_DOS_GRAFICOS
+

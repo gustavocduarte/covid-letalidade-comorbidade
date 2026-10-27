@@ -16,6 +16,8 @@ from config import (
 )
 from datas import marcas_de_data
 
+FONTE_DOS_GRAFICOS = "Inter, sans-serif"
+
 
 def aplicar_template_grafico(figura: go.Figure) -> go.Figure:
     """Template único dos gráficos: fundo transparente (o painel aparece por trás), grade discreta,
@@ -25,7 +27,10 @@ def aplicar_template_grafico(figura: go.Figure) -> go.Figure:
         plot_bgcolor="rgba(0,0,0,0)",
         font={"color": COR_TEXTO},
         colorway=list(SEQUENCIA_CORES_SERIES),
-        hoverlabel={"bgcolor": COR_FUNDO_PAINEL, "bordercolor": COR_BORDA},
+        hoverlabel={
+            "bgcolor": COR_FUNDO_PAINEL, "bordercolor": COR_BORDA,
+            "font": {"color": COR_TEXTO, "family": FONTE_DOS_GRAFICOS},  # sem a cor, o Plotly escolhe a do contraste
+        },
         separators=",.",
     )
     figura.update_xaxes(gridcolor=COR_GRADE, zerolinecolor=COR_GRADE, linecolor=COR_BORDA)
