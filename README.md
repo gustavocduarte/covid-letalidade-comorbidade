@@ -205,16 +205,16 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
    grava os CSVs com `load.py`. `cli.py` é a linha de comando que o chama.
 
 **Memória e tamanho.** A conversão e as consultas rodam com o DuckDB limitado a 400 MB
-(o excedente iria para disco temporário). Medido contra a versão em pandas que o projeto tinha antes:
+(o excedente iria para disco temporário). Medido contra a versão em pandas que o projeto tinha antes (removida; a coluna do pandas é histórica):
 
-| | pandas | DuckDB (limite de 400 MB) |
+| | pandas (histórico, removido) | DuckDB (limite de 400 MB, o que roda hoje) |
 |---|---|---|
 | Ano 2021 (1,8 GB de CSV, 1,2 milhão de casos): pico de memória / tempo | 0,74 GiB / 24 s | 0,21 GiB / 12 s |
-| Pipeline completo (7 anos, com a validação no caso do DuckDB): pico de memória / tempo | 0,74 GiB / 71 s | 0,20 GiB / 41 s |
+| Pipeline completo (7 anos; só a coluna do DuckDB inclui a validação): pico de memória / tempo | 0,74 GiB / 71 s | 0,20 GiB / 41 s |
 | Casos de COVID de 2021 em disco | 71,1 MiB (CSV) | 4,3 a 5,0 MiB (Parquet zstd) |
 
 Os Parquets dos 7 anos somam 8,4 MiB, contra 141 MB do cache em CSV que o pipeline gerava
-antes.
+antes (o cache foi removido).
 
 ## Validação dos dados
 
@@ -234,7 +234,7 @@ ou um **aviso**:
   (verdadeiro quando não há erro). Não tem data nem hora, então a mesma entrada gera sempre o
   mesmo arquivo, e o teste golden o compara com o versionado.
 - Com os dados reais, o relatório sai aprovado, com 333 casos sem UF (de 2.291.279) e nenhum
-  outro problema. O dashboard lê o relatório e, só quando ele está aprovado e há casos sem UF,
+  outro problema. O dashboard lê o relatório e, só quando ele está aprovado e há casos sem UF (vazia ou inválida),
   mostra "N casos sem estado informado não entram no mapa".
 
 ## Estrutura de pastas
