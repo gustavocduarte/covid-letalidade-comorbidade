@@ -204,3 +204,19 @@ def test_salvar_json_grava_utf8_com_lf_e_ida_e_volta(tmp_path, monkeypatch):
     assert caminho == tmp_path / "teste.json"
     assert b"\r" not in caminho.read_bytes()
     assert json.loads(caminho.read_text(encoding="utf-8")) == dados
+
+
+@pytest.mark.parametrize(("codigo", "tabela"), [
+    ("SERIE_SEMANAL_COM_LACUNAS", "serie_semanal"),
+    ("SERIE_COMORBIDADE_INCOMPLETA", "serie_comorbidade"),
+    ("SERIE_ESTADO_INCOMPLETA", "serie_estado"),
+])
+def test_grade_incompleta_das_series_vira_erro_mesmo_com_a_soma_igual(saidas_validas, codigo, tabela):
+    serie = saidas_validas["tabelas"][tabela]
+    meio_zero = serie[(serie["casos"] == 0) & (serie["semana"] > serie["semana"].min())]
+    sem_uma_linha_de_zero = serie.drop(meio_zero.index[0])  # a soma dos casos não muda; falta só uma combinação
+
+    achados = _validar(saidas_validas, **{tabela: sem_uma_linha_de_zero})
+
+    assert [(a.nivel, a.codigo) for a in achados] == [(ERRO, codigo)]
+

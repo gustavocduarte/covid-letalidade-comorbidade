@@ -242,7 +242,7 @@ ou um **aviso**:
 
 | Nível | O que dispara |
 |---|---|
-| **Erro** | `EVOLUCAO` fora de {1, 2, 3, 9} ou comorbidade fora de {1, 2, 9} (vazio vale); mais de 1% dos casos de um ano sem data de início dos sintomas ou com data fora do ano (± 7 dias, já que os arquivos anuais são cortados por semana epidemiológica); e qualquer violação das conferências entre as tabelas e os Parquets: 11 comorbidades por ano, óbitos ≤ desfechos conhecidos ≤ casos, taxas entre 0 e 1, agregado igual à soma dos anos, e soma dos casos por estado e das séries semanais igual ao total de casos |
+| **Erro** | `EVOLUCAO` fora de {1, 2, 3, 9} ou comorbidade fora de {1, 2, 9} (vazio vale); mais de 1% dos casos de um ano sem data de início dos sintomas ou com data fora do ano (± 7 dias, já que os arquivos anuais são cortados por semana epidemiológica); e qualquer violação das conferências entre as tabelas e os Parquets: 11 comorbidades por ano, óbitos ≤ desfechos conhecidos ≤ casos, taxas entre 0 e 1, agregado igual à soma dos anos, soma dos casos por estado e das séries semanais igual ao total de casos, e séries semanais em grade completa (toda semana × 27 UFs e × 11 comorbidades, com casos = 0 onde não houve caso) |
 | **Aviso** | casos sem UF ou com UF fora das 27 siglas (ficam fora das tabelas por estado, mas são contados); até 1% de datas inválidas; mais de 20% de casos sem desfecho conhecido em um ano (num ano parcial e recente, muitos casos ainda estão em andamento, então esse aviso pode ser esperado); ano sem nenhum caso de COVID |
 
 - **Com erro**, o pipeline grava o relatório, não grava nenhum CSV de saída (os CSVs anteriores,

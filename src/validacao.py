@@ -5,6 +5,7 @@ Cada verificação devolve achados de nível "erro" (o pipeline não deve gravar
 """
 
 from dataclasses import asdict, dataclass
+from itertools import product
 
 import duckdb
 import pandas as pd
@@ -190,6 +191,8 @@ def validar_saidas(
         if obtido != esperado:
             erro(codigo, abs(obtido - esperado), f"Soma de {nome} = {obtido}, mas os Parquets indicam {esperado}.")
 
+    achados += _validar_grades(serie_semanal, serie_comorbidade, serie_estado)
+
     if resumo is not None:
         achados += _validar_resumo(resumo, estatisticas, estado)
 
@@ -199,6 +202,32 @@ def validar_saidas(
     if excesso:
         erro("SERIE_COMORBIDADE_MAIOR_QUE_CASOS", excesso,
              f"{excesso} comorbidades com mais casos na série que na tabela.")
+    return achados
+
+
+def _validar_grades(serie_semanal: pd.DataFrame, serie_comorbidade: pd.DataFrame, serie_estado: pd.DataFrame) -> list[Achado]:
+    """As séries semanais não têm lacuna: a nacional tem todas as semanas da primeira à última, e as por
+    comorbidade e por estado têm todas essas semanas para cada comorbidade e cada UF (zero é linha, não ausência)."""
+    if serie_semanal.empty:  # nenhum caso com data válida: não há grade a conferir
+        return []
+    achados = []
+    semanas = pd.date_range(serie_semanal["semana"].min(), serie_semanal["semana"].max(), freq="7D")
+    faltam = len(semanas) - serie_semanal["semana"].nunique() if len(serie_semanal) else 0
+    if faltam or serie_semanal["semana"].duplicated().any():
+        achados.append(Achado(ERRO, "SERIE_SEMANAL_COM_LACUNAS", None, max(faltam, 1),
+                              f"Série semanal com {faltam} semanas faltando entre a primeira e a última."))
+    grades = (
+        ("SERIE_COMORBIDADE_INCOMPLETA", "por comorbidade", serie_comorbidade, "comorbidade", COMORBIDADES),
+        ("SERIE_ESTADO_INCOMPLETA", "por estado", serie_estado, "sigla", UFS_VALIDAS),
+    )
+    for codigo, nome, serie, chave, valores in grades:
+        esperado = set(product(semanas, valores))
+        obtido = list(zip(serie["semana"], serie[chave], strict=True))
+        divergencia = len(esperado - set(obtido)) + (len(obtido) - len(set(obtido)))
+        if divergencia:
+            achados.append(Achado(ERRO, codigo, None, divergencia,
+                                  f"Série semanal {nome}: {divergencia} combinações semana x {chave} faltando ou "
+                                  "repetidas; toda semana da série nacional deve ter todas as linhas (com casos = 0)."))
     return achados
 
 
