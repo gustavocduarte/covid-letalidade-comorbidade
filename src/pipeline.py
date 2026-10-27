@@ -22,6 +22,7 @@ from config import (
     NOME_TODOS_ANOS,
     PASTA_DETALHADO,
     PASTA_RAW,
+    PROCESSED_DIR,
     URLS_SRAG,
 )
 from consultas import (
@@ -37,7 +38,7 @@ from consultas import (
 from conversao import csv_para_parquet
 from estado import ano_em_dia, assinatura_csv, gravar_estado, ler_estado, registro_do_ano
 from extract import baixar_arquivo
-from load import salvar_csv, salvar_json
+from load import publicar_csvs, salvar_csv, salvar_json
 from validacao import (
     ERRO,
     ErroDeValidacao,
@@ -145,28 +146,34 @@ def executar_pipeline(
         serie_semanal=serie_semanal, serie_comorbidade=serie_comorbidade, serie_estado=serie_estado, resumo=resumo,
     )
     relatorio = montar_relatorio(estatisticas, achados)
-    logger.info(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
     for achado in achados:
         logger.info(f"  [{achado.nivel.upper()}] {achado.mensagem}")
     erros = [a for a in achados if a.nivel == ERRO]
     if erros:
+        # Reprovado: o relatório é o único arquivo gravado; os CSVs anteriores ficam como estavam.
+        logger.info(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
         raise ErroDeValidacao(erros)
 
-    caminho = salvar_csv(por_ano, NOME_TODOS_ANOS)
-    logger.info(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {caminho}")
+    # Aprovado: os CSVs são publicados juntos (temporários + troca no fim) e o relatório, que o dashboard lê para
+    # saber que os CSVs estão aprovados, é o último arquivo a ser gravado.
+    publicar_csvs({
+        NOME_TODOS_ANOS: por_ano, NOME_AGREGADO: agregado, NOME_SEMANAL: serie_semanal,
+        NOME_SEMANAL_COMORBIDADE: serie_comorbidade, NOME_SEMANAL_ESTADO: serie_estado, NOME_RESUMO_GERAL: resumo,
+        NOME_ESTADO: agregado_estado,
+    })
+    logger.info(f"\nConsolidado de {len(URLS_SRAG)} anos salvo em: {PROCESSED_DIR / NOME_TODOS_ANOS}")
     logger.info(f"Total de linhas: {len(por_ano)} (deveria ser {len(URLS_SRAG)} anos x 11 comorbidades = {len(URLS_SRAG) * 11})")
     # Agregado: soma óbitos e desfechos conhecidos de todos os anos (2020-2026, incluindo
-    # o ano corrente parcial) numa única taxa por comorbidade. É o que o dashboard usa hoje,
-    # antes de existir o filtro de ano.
-    logger.info(f"Agregado (todos os anos somados) salvo em: {salvar_csv(agregado, NOME_AGREGADO)}")
-    logger.info(f"Série semanal ({len(serie_semanal)} semanas) salva em: {salvar_csv(serie_semanal, NOME_SEMANAL)}")
+    # o ano corrente parcial) numa única taxa por comorbidade.
+    logger.info(f"Agregado (todos os anos somados) salvo em: {PROCESSED_DIR / NOME_AGREGADO}")
+    logger.info(f"Série semanal ({len(serie_semanal)} semanas) salva em: {PROCESSED_DIR / NOME_SEMANAL}")
     logger.info(f"Série semanal por comorbidade ({len(serie_comorbidade)} linhas) salva em: "
-          f"{salvar_csv(serie_comorbidade, NOME_SEMANAL_COMORBIDADE)}")
-    logger.info(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: "
-          f"{salvar_csv(serie_estado, NOME_SEMANAL_ESTADO)}")
-    logger.info(f"Resumo geral por ano salvo em: {salvar_csv(resumo, NOME_RESUMO_GERAL)}")
+                f"{PROCESSED_DIR / NOME_SEMANAL_COMORBIDADE}")
+    logger.info(f"Série semanal por estado ({len(serie_estado)} linhas) salva em: {PROCESSED_DIR / NOME_SEMANAL_ESTADO}")
+    logger.info(f"Resumo geral por ano salvo em: {PROCESSED_DIR / NOME_RESUMO_GERAL}")
     logger.info(f"Letalidade por estado (todos os anos somados, {len(agregado_estado)} estados) salva em: "
-          f"{salvar_csv(agregado_estado, NOME_ESTADO)}")
+                f"{PROCESSED_DIR / NOME_ESTADO}")
+    logger.info(f"\nRelatório de qualidade salvo em: {salvar_json(relatorio, NOME_RELATORIO)}")
     logger.info(f"\nCasos de COVID por ano (Parquet, uso futuro, sem precisar rebaixar) em: {PASTA_DETALHADO}")
     return status
 

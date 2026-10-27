@@ -230,6 +230,20 @@ def test_erro_de_validacao_grava_o_relatorio_e_nenhum_csv(tmp_path, monkeypatch,
     assert (primeiro["nivel"], primeiro["codigo"], primeiro["ano"]) == ("erro", "DATA_INVALIDA", 2020)
 
 
+def test_relatorio_e_o_ultimo_arquivo_gravado_quando_aprovado(tmp_path, monkeypatch):
+    processed, detalhado = tmp_path / "processed", tmp_path / "detalhado"
+    _apontar_pipeline_para_amostra(monkeypatch, processed, detalhado)
+    monkeypatch.setattr(validacao, "LIMITE_DATA_INVALIDA", 1.0)
+    eventos = []
+    publicar, salvar_json = pipeline.publicar_csvs, pipeline.salvar_json
+    monkeypatch.setattr(pipeline, "publicar_csvs", lambda t: (eventos.append("csvs"), publicar(t))[1])
+    monkeypatch.setattr(pipeline, "salvar_json", lambda d, n: (eventos.append("relatorio"), salvar_json(d, n))[1])
+
+    assert cli.main(["pipeline"]) == 0
+
+    assert eventos == ["csvs", "relatorio"]
+
+
 def _atualizar_data(caminho: Path) -> None:
     """Como se o arquivo tivesse sido baixado de novo: mesma coisa, data de modificação mais recente."""
     info = caminho.stat()

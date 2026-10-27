@@ -247,7 +247,9 @@ ou um **aviso**:
 
 - **Com erro**, o pipeline grava o relatório, não grava nenhum CSV de saída (os CSVs anteriores,
   que o dashboard usa, ficam como estavam) e termina com código de saída 1.
-- **`data/processed/relatorio_qualidade.json`** é gravado em todos os casos e versionado. Traz,
+- **`data/processed/relatorio_qualidade.json`** é gravado em todos os casos e versionado. Quando aprovado, os CSVs
+  são gravados antes em arquivos temporários e trocados juntos (`os.replace`) só com todos prontos, e o relatório
+  é o último a ser gravado; uma falha no meio não deixa CSVs misturados de execuções diferentes. Traz,
   por ano e no total, as contagens de cada problema, a lista de achados e `"aprovado"`
   (verdadeiro quando não há erro). Não tem data nem hora, então a mesma entrada gera sempre o
   mesmo arquivo, e o teste golden o compara com o versionado.
