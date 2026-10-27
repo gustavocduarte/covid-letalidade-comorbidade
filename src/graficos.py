@@ -113,13 +113,36 @@ def figura_por_ano(todos_anos: pd.DataFrame, comorbidade: str) -> go.Figure:
 
 ESCALAS_SERIE = ("Linear", "Logarítmica")
 ROTULO_VACINACAO = "Início da vacinação"
+ROTULO_EM_NOTIFICACAO = "em notificação"
+COR_FAIXA_EM_NOTIFICACAO = "rgba(154, 167, 184, 0.22)"
 ALTURA_SERIE_PX = 380
 MARGEM_ALTA_LOG = 0.15  # folga acima do maior valor, em décadas (log10)
 PONTOS_DO_EIXO_PCT = [0, 25, 50, 75, 100]
 
 
+def _fim_do_eixo(ultima_semana: pd.Timestamp, em_notificacao_desde: pd.Timestamp | None) -> pd.Timestamp:
+    """Fim do eixo de datas: com a faixa, vai até o fim da última semana, para o rótulo dela caber no gráfico."""
+    return ultima_semana if em_notificacao_desde is None else ultima_semana + pd.Timedelta(days=7)
+
+
+def _faixa_em_notificacao(figura: go.Figure, desde: pd.Timestamp | None, ultima_semana: pd.Timestamp) -> None:
+    """Sombreia da primeira semana em notificação até o fim da última semana, com o rótulo "em notificação"."""
+    if desde is None:
+        return
+    fim = ultima_semana + pd.Timedelta(days=7)
+    figura.add_shape(
+        type="rect", x0=desde, x1=fim, y0=0, y1=1, yref="paper", fillcolor=COR_FAIXA_EM_NOTIFICACAO, line_width=0,
+        layer="below",
+    )
+    figura.add_annotation(
+        x=fim, y=1, yref="paper", text=ROTULO_EM_NOTIFICACAO, showarrow=False, xanchor="right", yanchor="top",
+        xshift=-4, font={"color": COR_EIXO, "size": 11},
+    )
+
+
 def figura_serie_semanal(
     semanal: pd.DataFrame, por_comorbidade: pd.DataFrame, inicio_vacinacao: pd.Timestamp, escala: str = "Linear",
+    em_notificacao_desde: pd.Timestamp | None = None,
 ) -> go.Figure:
     """Casos por semana no Brasil (área) com, por cima, as comorbidades escolhidas e a marca do início da vacinação.
 
@@ -157,8 +180,9 @@ def figura_serie_semanal(
         x=inicio_vacinacao, y=1, yref="paper", text=ROTULO_VACINACAO, showarrow=False, xanchor="left", xshift=6,
         yanchor="top", font={"color": COR_ALERTA, "size": 11},
     )
+    _faixa_em_notificacao(figura, em_notificacao_desde, total["semana"].max())
     aplicar_template_grafico(figura)
-    aplicar_eixo_de_datas(figura, total["semana"].min(), total["semana"].max())
+    aplicar_eixo_de_datas(figura, total["semana"].min(), _fim_do_eixo(total["semana"].max(), em_notificacao_desde))
     figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
     figura.update_yaxes(
         type="log" if logaritmica else "linear", tickfont={"color": COR_EIXO, "size": 10}, automargin=True,
@@ -238,7 +262,9 @@ def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:
     return figura
 
 
-def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -> go.Figure:
+def figura_curvas_estados(
+    curvas: pd.DataFrame, nomes_estados: dict[str, str], em_notificacao_desde: pd.Timestamp | None = None,
+) -> go.Figure:
     """Uma linha por estado com os casos semanais em % do pico do próprio estado (de `normalizar_pelo_pico`).
 
     As cores seguem a ordem alfabética das siglas marcadas.
@@ -251,8 +277,9 @@ def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -
             line={"color": cor, "width": 2}, customdata=grupo["casos"],
             hovertemplate=f"<b>{nomes_estados[sigla]}</b>: %{{y:.0f}}% do pico (%{{customdata:,}} casos)<extra></extra>",
         ))
+    _faixa_em_notificacao(figura, em_notificacao_desde, curvas["semana"].max())
     aplicar_template_grafico(figura)
-    aplicar_eixo_de_datas(figura, curvas["semana"].min(), curvas["semana"].max())
+    aplicar_eixo_de_datas(figura, curvas["semana"].min(), _fim_do_eixo(curvas["semana"].max(), em_notificacao_desde))
     figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
     figura.update_yaxes(
         range=[0, 105], tickvals=PONTOS_DO_EIXO_PCT, ticktext=[f"{v}%" for v in PONTOS_DO_EIXO_PCT], tickfont={"color": COR_EIXO, "size": 10},

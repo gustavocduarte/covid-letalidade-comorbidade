@@ -3,7 +3,13 @@
 import streamlit as st
 
 from componentes import titulo_painel
-from config import DATA_INICIO_VACINACAO, FAIXA_NEUTRA_PP, FRACAO_PICO_DA_CAUDA, LIMITE_AMOSTRA_PEQUENA
+from config import (
+    DATA_INICIO_VACINACAO,
+    FAIXA_NEUTRA_PP,
+    FRACAO_PICO_DA_CAUDA,
+    LIMITE_AMOSTRA_PEQUENA,
+    SEMANAS_EM_NOTIFICACAO,
+)
 from formatacao import fmt_decimal, fmt_inteiro
 from qualidade import casos_sem_estado
 
@@ -60,8 +66,13 @@ with st.container(border=True, key="painel_metodologia_limites"):
 **Casos sem estado.** {_texto_sem_uf}. Eles entram em todos os números nacionais, mas não aparecem no mapa,
 nos blocos nem nas curvas por estado.
 
-**Semana mais recente ainda em notificação.** Os registros chegam com atraso; o número da semana mais recente
-tende a subir nas próximas atualizações e não deve ser lido como queda.
+**Semanas recentes ainda em notificação.** Os registros chegam com atraso; o número das últimas semanas tende a
+subir nas próximas atualizações e a queda no fim da série não é queda real. Por isso as últimas
+{SEMANAS_EM_NOTIFICACAO} semanas antes da data da base aparecem sombreadas e marcadas "em notificação" nos gráficos
+de série. O corte de {SEMANAS_EM_NOTIFICACAO} semanas é onde a série nacional quebra: cerca de 50 casos por semana
+até 20/07/2026 e 21, 23, 14 e 3 nas quatro semanas seguintes (base de 24/08/2026). Só existe uma versão da base no
+histórico do projeto, então não foi possível medir a defasagem comparando bases de datas diferentes; o número é
+uma leitura da própria série, e a faixa é só um aviso: os números dessas semanas não foram alterados.
 
 **Comorbidades múltiplas.** Muitos pacientes têm mais de uma comorbidade registrada, então os grupos "com" e
 "sem" se sobrepõem. Por exemplo, parte do grupo "sem Diabetes" pode ter doença cardiovascular. As taxas não

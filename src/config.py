@@ -193,6 +193,13 @@ FAIXA_NEUTRA_PP = 2.0
 # A "cauda" de um estado termina na primeira semana depois do pico com casos abaixo desta fração do pico.
 FRACAO_PICO_DA_CAUDA = 0.10
 
+# Últimas semanas antes da data da base, ainda em notificação: os casos chegam com atraso, então essas semanas
+# estão incompletas e a queda no fim da série não é queda real. 4 é onde a série nacional quebra: de ~50 casos por
+# semana até 20/07/2026 para 21, 23, 14 e 3 nas quatro semanas seguintes (base de 24/08/2026). Só há uma versão da
+# base no histórico, então não deu para medir a defasagem comparando bases de datas diferentes; 4 é o corte que
+# os próprios dados mostram.
+SEMANAS_EM_NOTIFICACAO = 4
+
 # Nomes curtos para legendas e rótulos apertados (a legenda cortava "Doença Cardiovascul...").
 NOMES_CURTOS_COMORBIDADES = {
     "CARDIOPATI": "Cardiovascular",

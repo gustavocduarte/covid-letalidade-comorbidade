@@ -29,7 +29,13 @@ from graficos import (
     figura_mapa_estados,
     figura_serie_semanal,
 )
-from indicadores_tempo import kpis_tempo, normalizar_pelo_pico, preparar_estados, resumo_por_estado
+from indicadores_tempo import (
+    inicio_em_notificacao,
+    kpis_tempo,
+    normalizar_pelo_pico,
+    preparar_estados,
+    resumo_por_estado,
+)
 from qualidade import aviso_casos_sem_estado
 
 # Referência temporal no gráfico da linha do tempo, sem implicar relação de causa e efeito.
@@ -46,6 +52,7 @@ st.html('<div class="cv-kpis">' + "".join(
     for k in kpis_tempo(pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"]), resumo_estados, data_da_base())
 ) + "</div>")
 
+_em_notificacao = inicio_em_notificacao(data_da_base())
 _semanal = pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"])
 _semanal_comorbidade = pd.read_csv(CAMINHO_SEMANAL_COMORBIDADE, parse_dates=["semana"])
 _semanal_comorbidade["nome"] = _semanal_comorbidade["comorbidade"].map(NOMES_CURTOS_COMORBIDADES)
@@ -70,7 +77,7 @@ with st.container(border=True, key="painel_serie"):
     )
     exibir_grafico(figura_serie_semanal(
         _semanal, _semanal_comorbidade[_semanal_comorbidade["nome"].isin(comorbidades_marcadas)],
-        DATA_INICIO_VACINACAO, escala,
+        DATA_INICIO_VACINACAO, escala, _em_notificacao,
     ))
     st.caption(
         "A escala logarítmica mostra as ondas recentes, achatadas na linear. "
@@ -119,7 +126,7 @@ with st.container(border=True, key="painel_curvas"):
     )
     if estados_marcados:
         exibir_grafico(figura_curvas_estados(
-            _curvas[_curvas["sigla"].isin(_nome_para_sigla[n] for n in estados_marcados)], nomes_estados,
+            _curvas[_curvas["sigla"].isin(_nome_para_sigla[n] for n in estados_marcados)], nomes_estados, _em_notificacao,
         ))
     else:
         st.info("Selecione pelo menos um estado para ver o gráfico.")

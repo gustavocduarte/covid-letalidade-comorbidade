@@ -1,6 +1,6 @@
 """Números da página Linha do tempo e estados, calculados só a partir dos CSVs semanais versionados."""
 
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 
@@ -11,6 +11,7 @@ from config import (
     DATA_INICIO_VACINACAO,
     ESCALA_LETALIDADE,
     FRACAO_PICO_DA_CAUDA,
+    SEMANAS_EM_NOTIFICACAO,
 )
 from formatacao import fmt_inteiro
 from indicadores import Kpi, juntar_nomes
@@ -39,6 +40,14 @@ def resumo_por_estado(semanal_estado: pd.DataFrame, nomes_estados: dict[str, str
     resumo = pd.DataFrame(linhas)
     resumo["semanas_ate_cauda"] = resumo["semanas_ate_cauda"].astype("Int64")
     return resumo.sort_values(["semanas_ate_cauda", "nome"], ascending=[False, True], na_position="last").reset_index(drop=True)
+
+
+def inicio_em_notificacao(data_base: date | None, semanas: int = SEMANAS_EM_NOTIFICACAO) -> pd.Timestamp | None:
+    """Segunda-feira da primeira semana ainda em notificação: `semanas` semanas antes da data da base (None sem base)."""
+    if data_base is None:
+        return None
+    inicio = pd.Timestamp(data_base - timedelta(weeks=semanas))
+    return inicio - pd.Timedelta(days=inicio.weekday())
 
 
 def _nomes_no_kpi(nomes: list[str]) -> str:

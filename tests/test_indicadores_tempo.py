@@ -65,3 +65,12 @@ def test_cartao_da_semana_recente_sem_data_da_base_nao_cita_a_base():
 
     assert kpis_tempo(semanal, resumo)[3].linha == "casos na semana de 17/08/2026, ainda em notificação"
 
+
+
+def test_inicio_em_notificacao_e_a_segunda_feira_n_semanas_antes_da_base():
+    from indicadores_tempo import inicio_em_notificacao
+
+    assert inicio_em_notificacao(date(2026, 8, 24)) == pd.Timestamp("2026-07-27")  # base numa segunda: 4 semanas antes
+    assert inicio_em_notificacao(date(2026, 8, 26)) == pd.Timestamp("2026-07-27")  # base na quarta: volta à segunda
+    assert inicio_em_notificacao(date(2026, 8, 24), semanas=6) == pd.Timestamp("2026-07-13")
+    assert inicio_em_notificacao(None) is None

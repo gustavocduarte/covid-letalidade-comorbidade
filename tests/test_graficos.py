@@ -301,3 +301,22 @@ def test_eixo_log_comeca_em_1_e_o_linear_fica_automatico():
     assert log.layout.yaxis.range[0] == 0  # 10**0 = 1: nenhum rótulo abaixo de 1
     assert math.log10(400) < log.layout.yaxis.range[1] < math.log10(400) + 0.5
     assert linear.layout.yaxis.range is None
+
+
+def test_faixa_em_notificacao_sombreia_as_ultimas_semanas_nas_duas_escalas_e_nas_curvas():
+    from graficos import ROTULO_EM_NOTIFICACAO, figura_curvas_estados, figura_serie_semanal
+    from indicadores_tempo import normalizar_pelo_pico
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()  # semanas de 04/01 a 25/01/2021
+    desde = pd.Timestamp("2021-01-18")
+
+    for escala in ("Linear", "Logarítmica"):
+        figura = figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17"), escala, desde)
+        faixa = next(f for f in figura.layout.shapes if f.type == "rect")
+        assert (faixa.x0, faixa.x1) == (desde, pd.Timestamp("2021-02-01"))  # até o fim da última semana (25/01 + 7)
+        assert ROTULO_EM_NOTIFICACAO in [a.text for a in figura.layout.annotations]
+    sem_base = figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17"))
+    assert not [f for f in sem_base.layout.shapes if f.type == "rect"]
+
+    curvas = normalizar_pelo_pico(semanal.assign(sigla="SP"))
+    assert [f for f in figura_curvas_estados(curvas, {"SP": "São Paulo"}, desde).layout.shapes if f.type == "rect"]
