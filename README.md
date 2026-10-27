@@ -10,14 +10,16 @@ Brasil**, usando dados reais do SIVEP-Gripe (Ministério da Saúde).
 
 ## Print do dashboard
 
-![Taxa de letalidade por comorbidade](docs/screenshot-comorbidades.png)
-Taxa de letalidade por comorbidade — comparação entre quem tem e quem não tem cada condição.
+![Página Comorbidades](docs/screenshot-comorbidades.png)
+Página **Comorbidades**: indicadores, letalidade com e sem cada comorbidade (diferença em pontos percentuais),
+exploração de uma comorbidade, principais achados e a tabela completa.
+
+![Página Linha do tempo e estados](docs/screenshot-linha-tempo.png)
+Página **Linha do tempo e estados**: casos semanais (escala linear ou logarítmica) com a marca do início da
+vacinação, letalidade por estado (mapa ou blocos), curvas por estado em % do próprio pico e a tabela de pico e cauda.
 
 ![Mapa de letalidade por estado](docs/screenshot-mapa.png)
-Mapa coroplético do Brasil com a taxa de letalidade de COVID-19 por estado.
-
-![Casos por estado ao longo do tempo](docs/screenshot-linha-tempo.png)
-Comparação da curva de casos entre estados ao longo do tempo, normalizada pelo pico de cada um.
+Painel de letalidade por estado, em modo mapa.
 
 ## O que este projeto faz
 
@@ -30,8 +32,9 @@ Comparação da curva de casos entre estados ao longo do tempo, normalizada pelo
 - Converte cada ano em Parquet (DuckDB) e gera as tabelas com consultas SQL sobre eles, com
   memória limitada a 400 MB.
 - Valida os dados antes de gravar qualquer saída e publica um relatório de qualidade.
-- Apresenta tudo num dashboard interativo (Streamlit): gráficos de barras, linha do
-  tempo, mapa coroplético do Brasil por estado, e uma tabela explorável por comorbidade.
+- Apresenta tudo num dashboard interativo (Streamlit, tema escuro, três páginas): comparação com e sem cada
+  comorbidade, série semanal, mapa coroplético e blocos por estado, curvas normalizadas por estado e uma
+  página de metodologia.
 
 ## Fonte dos dados
 
@@ -42,9 +45,8 @@ disponibilizado pelo Ministério da Saúde através do
 um ano parcial). Os contornos geográficos dos estados vêm da
 [API oficial do IBGE](https://servicodados.ibge.gov.br/).
 
-A metodologia completa (definição exata da taxa de letalidade e as limitações
-identificadas) está documentada dentro do próprio dashboard, na seção
-"Sobre este projeto / Metodologia".
+A metodologia completa (definição exata da taxa de letalidade, cortes de amostra pequena e faixa neutra,
+casos sem estado e limitações) está na página **Metodologia** do próprio dashboard.
 
 ## Como instalar e rodar
 
@@ -216,6 +218,22 @@ data/raw/INFLUDaa.csv ──► Parquet por ano ──► consultas SQL (DuckDB)
 Os Parquets dos 7 anos somam 8,4 MiB, contra 141 MB do cache em CSV que o pipeline gerava
 antes (o cache foi removido).
 
+## Como o dashboard funciona
+
+O dashboard **só lê** os CSVs versionados de `data/processed/`, o relatório de qualidade e o GeoJSON: não importa
+DuckDB nem o pipeline (um teste confere isso), então roda no Streamlit Cloud com poucas dependências.
+
+- `src/dashboard.py` é só a entrada: monta a navegação (`st.navigation`, menu próprio na barra lateral), o CSS e o
+  cabeçalho, e executa a página escolhida.
+- `src/paginas/` tem uma página por arquivo (`comorbidades.py`, `tempo_estados.py`, `metodologia.py`); a lista de
+  páginas, a paleta e os limites (amostra pequena, faixa neutra, cauda) ficam em `src/config.py`.
+- Os números vêm de funções puras e testadas, sem tocar na tela: `indicadores.py` e `indicadores_tempo.py`
+  (KPIs, achados, tabelas, pico e cauda por estado), `formatacao.py` (números em pt-BR) e `datas.py` (meses
+  em português nos eixos).
+- `graficos.py` monta as figuras Plotly (dumbbell, séries, curvas, mapa e blocos) sobre um template único
+  (`componentes.py`); `mapa.py` traz o apoio do mapa (cores dos rótulos, centro dos estados, orientação dos anéis).
+- `scripts/verificar_mapa_no_navegador.py` é uma verificação manual do mapa com Playwright (não roda no CI).
+
 ## Validação dos dados
 
 Depois de converter os anos e calcular as tabelas, e **antes de gravar qualquer CSV**, o
@@ -248,7 +266,7 @@ covid-letalidade-comorbidade/
 │   │   ├── resumo_geral.csv  # Casos, óbitos, curas e letalidade por ano, com todos os casos (versionado)
 │   │   └── relatorio_qualidade.json  # Relatório da validação (versionado)
 │   └── geo/          # Contorno geográfico dos estados em GeoJSON (gerado pelo passo 6)
-├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF) e texto extraído
+├── docs/             # Dicionário de dados oficial do SIVEP-Gripe (PDF e texto) e os prints do README
 ├── src/
 │   ├── extract.py              # E do ETL: baixa os CSVs brutos do OpenDataSUS
 │   ├── conversao.py            # T do ETL: CSV bruto -> Parquet só com casos de COVID (DuckDB)
@@ -261,13 +279,34 @@ covid-letalidade-comorbidade/
 │   ├── pipeline.py             # Orquestra E-T-L pros 7 anos, pulando os que estão em dia
 │   ├── cli.py                  # Linha de comando: geo, pipeline, serie-estado, tudo
 │   ├── geo.py                  # Baixa e verifica o contorno dos 27 estados (API do IBGE)
-│   └── dashboard.py            # O dashboard Streamlit em si
+│   ├── dashboard.py            # Entrada do dashboard Streamlit (navegação, tema e cabeçalho)
+│   ├── paginas/                # Uma página por arquivo: comorbidades, tempo_estados, metodologia
+│   ├── barra_lateral.py        # Menu e rodapé da barra lateral
+│   ├── componentes.py          # Template dos gráficos, cartões de número e títulos de painel
+│   ├── css.py                  # CSS do tema escuro
+│   ├── graficos.py             # Figuras Plotly (dumbbell, séries, curvas, mapa, blocos)
+│   ├── indicadores.py          # KPIs, achados e tabela da página Comorbidades (funções puras)
+│   ├── indicadores_tempo.py    # KPIs, pico/cauda e preparo dos estados da página Linha do tempo
+│   ├── formatacao.py           # Números e percentuais no padrão brasileiro
+│   ├── datas.py                # Rótulos de data em português para os eixos
+│   └── mapa.py                 # Apoio ao mapa: cores dos rótulos, centros e orientação do GeoJSON
+├── scripts/
+│   └── verificar_mapa_no_navegador.py  # Verificação manual do mapa com Playwright (fora do CI)
 ├── tests/
 │   ├── test_conversao.py       # CSV bruto -> Parquet sobre a amostra sintética
 │   ├── test_consultas.py       # Consultas SQL contra valores calculados à mão
 │   ├── test_travas.py          # As travas de teste: sem rede e sem escrita em data/
 │   ├── test_validacao.py       # Verificações, invariantes e relatório de qualidade
-│   ├── test_qualidade.py       # Aviso de casos sem estado (lógica e dashboard renderizado)
+│   ├── test_qualidade.py       # Aviso de casos sem estado e mapa sem dependência externa
+│   ├── test_navegacao.py       # Páginas, barra lateral e interação (Streamlit AppTest)
+│   ├── test_indicadores.py     # KPIs, achados e tabela da página Comorbidades
+│   ├── test_indicadores_tempo.py  # KPIs, pico e cauda da página Linha do tempo
+│   ├── test_graficos.py        # Figuras Plotly (dumbbell, séries, curvas, mapa, blocos)
+│   ├── test_formatacao.py      # Números em pt-BR
+│   ├── test_datas.py           # Rótulos de data em português
+│   ├── test_mapa.py            # Orientação dos anéis do GeoJSON
+│   ├── test_tema.py            # Tema escuro consistente entre config.toml e config.py
+│   ├── test_dashboard_estrutura.py  # O dashboard só lê os CSVs versionados
 │   ├── test_estado.py          # Estado do pipeline incremental
 │   ├── test_extract.py         # Download atômico do CSV bruto
 │   ├── test_cli.py             # Subcomandos, --anos e códigos de saída
