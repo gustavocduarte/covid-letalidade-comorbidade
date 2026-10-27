@@ -196,3 +196,21 @@ LIMITE_AMOSTRA_PEQUENA = 10_000
 FAIXA_NEUTRA_PP = 2.0
 # A "cauda" de um estado termina na primeira semana depois do pico com casos abaixo desta fração do pico.
 FRACAO_PICO_DA_CAUDA = 0.10
+
+# Nomes curtos para legendas e rótulos apertados (a legenda cortava "Doença Cardiovascul...").
+NOMES_CURTOS_COMORBIDADES = {
+    "CARDIOPATI": "Cardiovascular",
+    "HEMATOLOGI": "Hematológica",
+    "SIND_DOWN": "Síndrome de Down",
+    "HEPATICA": "Hepática",
+    "ASMA": "Asma",
+    "DIABETES": "Diabetes",
+    "NEUROLOGIC": "Neurológica",
+    "PNEUMOPATI": "Pneumopatia",
+    "IMUNODEPRE": "Imunodeficiência",
+    "RENAL": "Renal",
+    "OBESIDADE": "Obesidade",
+}
+# Linhas de comorbidade já marcadas ao abrir a série semanal, e o máximo que cabe legível no gráfico.
+COMORBIDADES_SOBREPOSTAS_INICIAIS = ("DIABETES", "CARDIOPATI")
+MAXIMO_COMORBIDADES_SOBREPOSTAS = 3

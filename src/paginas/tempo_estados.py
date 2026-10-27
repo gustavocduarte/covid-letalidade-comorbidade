@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from componentes import aplicar_template_grafico, html_kpi
+from componentes import aplicar_template_grafico, exibir_grafico, html_kpi, titulo_painel
 from config import (
     ALTURA_MAPA_PX,
     CAMINHO_ESTADO,
@@ -16,16 +16,18 @@ from config import (
     CAMINHO_SEMANAL,
     CAMINHO_SEMANAL_COMORBIDADE,
     CAMINHO_SEMANAL_ESTADO,
+    COMORBIDADES_SOBREPOSTAS_INICIAIS,
     COR_FUNDO_PAGINA,
     COR_GRADE,
-    COR_SEM_COMORBIDADE,
     COR_TEXTO,
     DATA_INICIO_VACINACAO,
     ESCALA_LETALIDADE,
     ESTILO_MAPA,
     LARGURA_REFERENCIA_MAPA_PX,
-    NOMES_COMORBIDADES,
+    MAXIMO_COMORBIDADES_SOBREPOSTAS,
+    NOMES_CURTOS_COMORBIDADES,
 )
+from graficos import ESCALAS_SERIE, figura_serie_semanal
 from indicadores_tempo import kpis_tempo, resumo_por_estado
 from mapa import (
     centro_aproximado,
@@ -38,7 +40,6 @@ from qualidade import aviso_casos_sem_estado
 
 # Referência temporal no gráfico da linha do tempo, sem implicar relação de causa e efeito.
 DATA_INICIO_VACINACAO = pd.Timestamp(DATA_INICIO_VACINACAO)
-COR_LINHA_GERAL = COR_SEM_COMORBIDADE  # linha de referência no gráfico de linha do tempo
 
 with open(CAMINHO_GEOJSON, encoding="utf-8") as arquivo_geojson:
     geojson_brasil = json.load(arquivo_geojson)
@@ -51,72 +52,36 @@ st.html('<div class="cv-kpis">' + "".join(
     for k in kpis_tempo(pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"]), resumo_estados)
 ) + "</div>")
 
-with st.container(border=True):
-    st.subheader("Casos de COVID ao longo do tempo")
-    st.caption(
-        "A linha pontilhada marca o início da vacinação no Brasil, só como referência "
-        "temporal — não indica relação direta de causa e efeito com a curva de casos."
-    )
+_semanal = pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"])
+_semanal_comorbidade = pd.read_csv(CAMINHO_SEMANAL_COMORBIDADE, parse_dates=["semana"])
+_semanal_comorbidade["nome"] = _semanal_comorbidade["comorbidade"].map(NOMES_CURTOS_COMORBIDADES)
 
-    df_semanal = pd.read_csv(CAMINHO_SEMANAL, parse_dates=["semana"])
-
-    df_semanal_comorbidade = pd.read_csv(CAMINHO_SEMANAL_COMORBIDADE, parse_dates=["semana"])
-    df_semanal_comorbidade["comorbidade"] = df_semanal_comorbidade["comorbidade"].map(NOMES_COMORBIDADES)
-
-    comorbidades_selecionadas = st.pills(
-        "Sobrepor comorbidades:",
-        options=sorted(NOMES_COMORBIDADES.values()),
-        selection_mode="multi",
-        default=[],
-    )
-
-    # A linha geral (cinza) fica sempre visível, como referência de fundo.
-    linha_geral = alt.Chart(df_semanal).mark_line(color=COR_LINHA_GERAL, strokeWidth=2).encode(
-        x=alt.X("semana:T", title=None,
-                axis=alt.Axis(labelColor=COR_TEXTO, titleColor=COR_TEXTO, gridColor=COR_GRADE)),
-        y=alt.Y("casos:Q", title="Casos de COVID (SRAG) por semana",
-                axis=alt.Axis(labelColor=COR_TEXTO, titleColor=COR_TEXTO, gridColor=COR_GRADE)),
-        tooltip=[
-            alt.Tooltip("semana:T", title="Semana"),
-            alt.Tooltip("casos:Q", title="Total (todas as comorbidades)", format=","),
-        ],
-    )
-    camadas = [linha_geral]
-
-    # Cada comorbidade marcada vira uma linha colorida sobreposta — desmarcar tira a linha.
-    if comorbidades_selecionadas:
-        df_filtrado = df_semanal_comorbidade[df_semanal_comorbidade["comorbidade"].isin(comorbidades_selecionadas)]
-        linhas_comorbidade = alt.Chart(df_filtrado).mark_line(strokeWidth=2).encode(
-            x="semana:T",
-            y="casos:Q",
-            color=alt.Color(
-                "comorbidade:N",
-                scale=alt.Scale(scheme="tableau10"),
-                legend=alt.Legend(title=None, labelColor=COR_TEXTO, orient="top"),
-            ),
-            tooltip=[
-                alt.Tooltip("comorbidade:N", title="Comorbidade"),
-                alt.Tooltip("semana:T", title="Semana"),
-                alt.Tooltip("casos:Q", title="Casos", format=","),
-            ],
+with st.container(border=True, key="painel_serie"):
+    _cabecalho, _escala = st.columns([3, 1])
+    with _cabecalho:
+        titulo_painel(
+            "Casos por semana · Brasil",
+            "A linha tracejada marca o início da vacinação no Brasil, só como referência temporal: "
+            "não indica relação de causa e efeito com a curva de casos.",
         )
-        camadas.append(linhas_comorbidade)
-
-    df_vacina = pd.DataFrame({"data": [DATA_INICIO_VACINACAO]})
-    marcador_vacina = alt.Chart(df_vacina).mark_rule(
-        strokeDash=[5, 5], color=COR_TEXTO, strokeWidth=1.5
-    ).encode(x="data:T")
-    rotulo_vacina = alt.Chart(df_vacina).mark_text(
-        align="left", baseline="top", dx=6, dy=4, color=COR_TEXTO, fontSize=11, fontStyle="italic"
-    ).encode(x="data:T", y=alt.value(4), text=alt.value("Início da vacinação no Brasil"))
-    camadas += [marcador_vacina, rotulo_vacina]
-
-    grafico_tempo = (
-        alt.layer(*camadas)
-        .properties(height=380, background="transparent")
-        .configure_view(strokeWidth=0)
+    escala = _escala.segmented_control(
+        "Escala", ESCALAS_SERIE, default=ESCALAS_SERIE[0], key="escala_serie", label_visibility="collapsed",
+    ) or ESCALAS_SERIE[0]
+    comorbidades_marcadas = st.multiselect(
+        "Sobrepor comorbidades",
+        sorted(NOMES_CURTOS_COMORBIDADES.values()),
+        default=sorted(NOMES_CURTOS_COMORBIDADES[c] for c in COMORBIDADES_SOBREPOSTAS_INICIAIS),
+        max_selections=MAXIMO_COMORBIDADES_SOBREPOSTAS,
+        placeholder="Escolha até 3 comorbidades",
     )
-    st.altair_chart(grafico_tempo, width="stretch")
+    exibir_grafico(figura_serie_semanal(
+        _semanal, _semanal_comorbidade[_semanal_comorbidade["nome"].isin(comorbidades_marcadas)],
+        DATA_INICIO_VACINACAO, escala,
+    ))
+    st.caption(
+        "A escala logarítmica mostra as ondas recentes, achatadas na linear. "
+        "2026 é ano parcial."
+    )
 
 with st.container(border=True):
     st.subheader("Letalidade de COVID por estado")

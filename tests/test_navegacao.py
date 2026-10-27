@@ -1,5 +1,6 @@
 """Navegação por barra lateral: as duas páginas, a padrão, o cabeçalho de cada uma e o rodapé."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -119,3 +120,22 @@ def test_pagina_do_tempo_abre_com_os_quatro_indicadores_do_topo():
     for rotulo in ("Pico semanal", "Início da vacinação", "Cauda mais longa", "Semana mais recente"):
         assert rotulo in html
     assert "17/01/2021" in html
+
+
+def _nomes_das_linhas(tela: AppTest) -> list[str]:
+    return [t["name"] for t in json.loads(tela.get("plotly_chart")[0].proto.spec)["data"]]
+
+
+def test_serie_semanal_abre_com_duas_comorbidades_e_aceita_no_maximo_tres():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = tela.switch_page(_pagina("Linha do tempo e estados").arquivo).run()
+
+    seletor = next(m for m in tela.multiselect if m.label == "Sobrepor comorbidades")
+    assert seletor.value == ["Cardiovascular", "Diabetes"]
+    assert seletor.proto.max_selections == 3
+    assert _nomes_das_linhas(tela) == ["Brasil", "Cardiovascular", "Diabetes"]
+
+    tela = seletor.select("Asma").run()
+
+    assert not tela.exception
+    assert _nomes_das_linhas(tela) == ["Brasil", "Asma", "Cardiovascular", "Diabetes"]

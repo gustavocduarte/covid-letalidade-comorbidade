@@ -39,7 +39,7 @@ def test_kpis_do_tempo_trazem_pico_vacinacao_cauda_e_semana_recente():
     assert (pico.valor, pico.linha) == ("65.000", "casos na semana de 08/03/2021")
     assert vacina.valor == f"{DATA_INICIO_VACINACAO:%d/%m/%Y}"
     assert (cauda.valor, cauda.linha) == ("2 semanas", "Alfa e Gama")
-    assert (recente.valor, recente.linha) == ("1.234", "casos na semana de 17/08/2026")
+    assert (recente.valor, recente.linha) == ("1.234", "casos na semana de 17/08/2026, ainda em notificação")
 
 
 def test_kpi_da_cauda_resume_quando_muitos_estados_empatam():

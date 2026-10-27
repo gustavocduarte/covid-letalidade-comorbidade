@@ -51,5 +51,5 @@ def kpis_tempo(semanal: pd.DataFrame, resumo_estados: pd.DataFrame) -> list[Kpi]
         Kpi("Cauda mais longa", f"{maior_cauda} semanas", _nomes_no_kpi(empatados),
             ajuda="Semanas, depois do pico, até os casos semanais caírem abaixo de "
                   f"{FRACAO_PICO_DA_CAUDA:.0%} do pico do estado"),
-        Kpi("Semana mais recente", fmt_inteiro(recente["casos"]), f"casos na semana de {recente['semana']:%d/%m/%Y}"),
+        Kpi("Semana mais recente", fmt_inteiro(recente["casos"]), f"casos na semana de {recente['semana']:%d/%m/%Y}, ainda em notificação"),
     ]

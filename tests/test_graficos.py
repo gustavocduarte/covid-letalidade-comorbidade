@@ -125,3 +125,37 @@ def test_eixo_de_datas_usa_meses_em_portugues():
 
     assert list(figura.layout.xaxis.ticktext)[:3] == ["jul/20", "jan/21", "jul/21"]
     assert figura.layout.xaxis.tickmode == "array"
+
+
+def _semanal_e_comorbidades():
+    semanas = pd.date_range("2021-01-04", periods=4, freq="7D")
+    semanal = pd.DataFrame({"semana": semanas, "casos": [0, 100, 400, 50]})
+    por_comorbidade = pd.DataFrame({
+        "semana": list(semanas) * 2, "nome": ["Diabetes"] * 4 + ["Cardiovascular"] * 4,
+        "casos": [0, 30, 120, 10, 0, 20, 90, 5],
+    })
+    return semanal, por_comorbidade
+
+
+def test_serie_semanal_tem_brasil_comorbidades_com_nome_curto_e_marca_da_vacinacao():
+    from graficos import ROTULO_VACINACAO, figura_serie_semanal
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()
+
+    figura = figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17"))
+
+    assert [t.name for t in figura.data] == ["Brasil", "Cardiovascular", "Diabetes"]
+    assert list(figura.data[0].y) == [0, 100, 400, 50] and figura.layout.yaxis.type == "linear"
+    assert figura.layout.shapes[0].x0 == pd.Timestamp("2021-01-17")
+    assert figura.layout.annotations[0].text == ROTULO_VACINACAO
+
+
+def test_serie_semanal_em_escala_logaritmica_tira_as_semanas_sem_caso_das_comorbidades():
+    from graficos import figura_serie_semanal
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()
+
+    figura = figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17"), "Logarítmica")
+
+    assert figura.layout.yaxis.type == "log"
+    assert all(0 not in list(t.y) for t in figura.data[1:])

@@ -5,11 +5,14 @@ import math
 import pandas as pd
 import plotly.graph_objects as go
 
-from componentes import aplicar_template_grafico
+from componentes import aplicar_eixo_de_datas, aplicar_template_grafico
 from config import (
+    COR_ALERTA,
     COR_COM_COMORBIDADE,
     COR_EIXO,
+    COR_PRINCIPAL,
     COR_SEM_COMORBIDADE,
+    SEQUENCIA_CORES_SERIES,
 )
 from formatacao import fmt_inteiro, fmt_pontos
 from indicadores import COR_DA_CLASSE, classe_da_diferenca
@@ -95,4 +98,55 @@ def figura_por_ano(todos_anos: pd.DataFrame, comorbidade: str) -> go.Figure:
     figura.update_yaxes(range=[0, maximo * 1.2], showticklabels=False, showgrid=False)  # os rótulos das barras bastam
     figura.update_xaxes(showgrid=False, type="category")
     figura.update_layout(height=220, margin={"l": 10, "r": 10, "t": 20, "b": 30}, showlegend=False)
+    return figura
+
+
+ESCALAS_SERIE = ("Linear", "Logarítmica")
+ROTULO_VACINACAO = "Início da vacinação"
+ALTURA_SERIE_PX = 380
+
+
+def figura_serie_semanal(
+    semanal: pd.DataFrame, por_comorbidade: pd.DataFrame, inicio_vacinacao: pd.Timestamp, escala: str = "Linear",
+) -> go.Figure:
+    """Casos por semana no Brasil (área) com, por cima, as comorbidades escolhidas e a marca do início da vacinação.
+
+    `por_comorbidade` já vem só com as comorbidades a mostrar, com a coluna `nome` (curto) e `casos` por `semana`.
+    Na escala logarítmica as semanas sem caso saem do gráfico (o log de zero não existe).
+    """
+    logaritmica = escala == "Logarítmica"
+    figura = go.Figure()
+    total = semanal.sort_values("semana")
+    figura.add_trace(go.Scatter(
+        x=total["semana"], y=total["casos"], mode="lines", name="Brasil", fill="tozeroy" if not logaritmica else None,
+        line={"color": COR_PRINCIPAL, "width": 2}, fillcolor="rgba(34,211,238,0.12)",
+        hovertemplate="Brasil<br>%{x|%d/%m/%Y}: %{y:,} casos<extra></extra>",
+    ))
+    for cor, (nome, grupo) in zip(SEQUENCIA_CORES_SERIES, por_comorbidade.groupby("nome"), strict=False):
+        grupo = grupo.sort_values("semana")
+        if logaritmica:
+            grupo = grupo[grupo["casos"] > 0]
+        figura.add_trace(go.Scatter(
+            x=grupo["semana"], y=grupo["casos"], mode="lines", name=nome, line={"color": cor, "width": 2},
+            hovertemplate=nome + "<br>%{x|%d/%m/%Y}: %{y:,} casos<extra></extra>",
+        ))
+    figura.add_shape(
+        type="line", x0=inicio_vacinacao, x1=inicio_vacinacao, y0=0, y1=1, yref="paper",
+        line={"color": COR_ALERTA, "width": 2, "dash": "dash"},
+    )
+    figura.add_annotation(
+        x=inicio_vacinacao, y=1, yref="paper", text=ROTULO_VACINACAO, showarrow=False, xanchor="left", xshift=6,
+        yanchor="top", font={"color": COR_ALERTA, "size": 11},
+    )
+    aplicar_template_grafico(figura)
+    aplicar_eixo_de_datas(figura, total["semana"].min(), total["semana"].max())
+    figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
+    figura.update_yaxes(
+        type="log" if logaritmica else "linear", tickfont={"color": COR_EIXO, "size": 10}, automargin=True,
+        tickformat=",d",
+    )
+    figura.update_layout(
+        height=ALTURA_SERIE_PX, margin={"l": 10, "r": 10, "t": 10, "b": 30}, hovermode="x unified",
+        legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0, "font": {"size": 12}},
+    )
     return figura
