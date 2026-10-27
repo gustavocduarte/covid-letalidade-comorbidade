@@ -176,6 +176,14 @@ PAGINAS = (
         icone=":material/show_chart:",
         descricoes=("Casos semanais de COVID-19 hospitalizados (SRAG) no Brasil e por estado, 2020–2026",),
     ),
+    PaginaApp(
+        chave="metodologia",
+        titulo="Metodologia",
+        arquivo="paginas/metodologia.py",
+        url="metodologia",
+        icone=":material/info:",
+        descricoes=("Como os números são calculados, de onde vêm os dados e o que eles não permitem concluir",),
+    ),
 )
 
 # Comorbidade com menos casos que isto tem taxa pouco estável (aviso de "amostra pequena" no dashboard).

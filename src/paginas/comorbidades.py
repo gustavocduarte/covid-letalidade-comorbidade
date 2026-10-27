@@ -103,37 +103,3 @@ with st.container(border=True, key="painel_tabela"):
         f"{MARCA_AMOSTRA_PEQUENA} amostra pequena (menos de {fmt_inteiro(LIMITE_AMOSTRA_PEQUENA)} casos com a "
         "comorbidade): a taxa é menos estável."
     )
-
-with st.expander("Sobre este projeto / Metodologia"):
-    st.markdown(
-        """
-**Fonte dos dados**
-SIVEP-Gripe (Sistema de Informação da Vigilância Epidemiológica da Gripe), que registra
-casos de Síndrome Respiratória Aguda Grave (SRAG) no Brasil. Dado bruto disponibilizado
-pelo Ministério da Saúde através do OpenDataSUS.
-
-**Período coberto**
-2020 a 2026. **2026 é um ano parcial** — os dados só vão até o mês mais recente
-disponibilizado pelo Ministério da Saúde no momento da extração, não um ano fechado.
-
-**Definição da taxa de letalidade**
-Óbitos ÷ (óbitos + curas), considerando **apenas casos com desfecho conhecido**. Casos
-ignorados, em aberto (sem desfecho registrado ainda) ou óbito por outra causa são
-excluídos do cálculo — tanto do numerador quanto do denominador.
-
-**Limitações metodológicas identificadas**
-- *Confundimento por comorbidades múltiplas*: pacientes podem ter mais de uma comorbidade
-  registrada ao mesmo tempo. Isso faz os grupos de comparação "com" e "sem" cada condição
-  se sobreporem parcialmente entre si — por exemplo, parte do grupo "sem Diabetes" pode ter
-  Doença Cardiovascular Crônica, e vice-versa. As taxas aqui não isolam o efeito de uma
-  única comorbidade de forma independente das demais.
-- *Comorbidades raras têm amostra pequena*: condições com poucos casos registrados na base
-  (como Síndrome de Down) têm taxas de letalidade estatisticamente menos confiáveis — um
-  punhado de casos a mais ou a menos muda a taxa de forma desproporcional. O mapa por
-  estado tem o mesmo problema para estados com poucos casos.
-- *Tabagismo (TABAG) não incluído*: esse campo existe no formulário oficial do SIVEP-Gripe,
-  mas checamos e ele não é preenchido na prática pelos postos de saúde (100% vazio em
-  todos os 7 anos) — por isso foi excluído da análise, em vez de mostrar uma comorbidade
-  sem dado real por trás.
-        """
-    )

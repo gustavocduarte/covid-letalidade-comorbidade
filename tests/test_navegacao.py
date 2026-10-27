@@ -37,7 +37,7 @@ def test_paginas_tem_titulos_arquivos_e_enderecos_unicos_e_uma_padrao():
 def test_barra_lateral_lista_as_paginas_na_ordem(tela_inicial):
     assert not tela_inicial.exception
     assert [link.proto.label for link in tela_inicial.sidebar.get("page_link")] == [
-        "Comorbidades", "Linha do tempo e estados",
+        "Comorbidades", "Linha do tempo e estados", "Metodologia",
     ]
 
 
@@ -180,3 +180,22 @@ def test_tabela_de_pico_e_cauda_lista_os_27_estados_pela_cauda_mais_longa():
     assert not tela.exception
     assert len(tabela) == 27 and tabela["semanas_ate_cauda"].is_monotonic_decreasing
     assert tabela["nome"].iloc[0] in {"Paraná", "Santa Catarina"}
+
+
+def test_pagina_metodologia_explica_as_definicoes_e_os_cortes_do_dashboard():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+
+    tela = tela.switch_page(_pagina("Metodologia").arquivo).run()
+
+    texto = " ".join(m.value for m in tela.markdown)
+    assert not tela.exception
+    for trecho in ("Óbitos ÷ (óbitos + curas)", "333 casos não têm estado informado", "10.000 casos", "2 p.p.",
+                   "ainda em notificação", "CSV bruto do OpenDataSUS → Parquet"):
+        assert trecho in texto
+    assert "Explorar uma comorbidade" not in _html(tela)
+
+
+def test_pagina_comorbidades_nao_traz_mais_o_texto_de_metodologia():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+
+    assert [e.label for e in tela.expander] == []
