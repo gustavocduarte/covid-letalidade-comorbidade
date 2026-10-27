@@ -114,6 +114,7 @@ def figura_por_ano(todos_anos: pd.DataFrame, comorbidade: str) -> go.Figure:
 ESCALAS_SERIE = ("Linear", "Logarítmica")
 ROTULO_VACINACAO = "Início da vacinação"
 ALTURA_SERIE_PX = 380
+MARGEM_ALTA_LOG = 0.15  # folga acima do maior valor, em décadas (log10)
 PONTOS_DO_EIXO_PCT = [0, 25, 50, 75, 100]
 
 
@@ -134,6 +135,7 @@ def figura_serie_semanal(
 
     figura = go.Figure()
     total = semanal.sort_values("semana")
+    maximos = [casos(total).max()]
     figura.add_trace(go.Scatter(
         x=total["semana"], y=casos(total), mode=modo, marker={"size": 3, "color": COR_PRINCIPAL}, name="Brasil",
         fill="tozeroy" if not logaritmica else None,
@@ -142,6 +144,7 @@ def figura_serie_semanal(
     ))
     for cor, (nome, grupo) in zip(SEQUENCIA_CORES_SERIES, por_comorbidade.groupby("nome"), strict=False):
         grupo = grupo.sort_values("semana")
+        maximos.append(casos(grupo).max())
         figura.add_trace(go.Scatter(
             x=grupo["semana"], y=casos(grupo), mode=modo, marker={"size": 3, "color": cor}, name=nome, line={"color": cor, "width": 2},
             hovertemplate=nome + ": %{y:,} casos<extra></extra>",
@@ -161,6 +164,10 @@ def figura_serie_semanal(
         type="log" if logaritmica else "linear", tickfont={"color": COR_EIXO, "size": 10}, automargin=True,
         tickformat=",d",
     )
+    if logaritmica:
+        # O log começa em 1 (log10 = 0): sem isso o Plotly desce até 0,5 e o rótulo arredondado aparece como "0".
+        maior = max((m for m in maximos if pd.notna(m)), default=1)
+        figura.update_yaxes(range=[0, math.log10(max(maior, 1)) + MARGEM_ALTA_LOG])
     figura.update_layout(
         height=ALTURA_SERIE_PX, margin={"l": 10, "r": 10, "t": 10, "b": 30}, hovermode="x unified",
         legend={"orientation": "h", "yanchor": "bottom", "y": 1.02, "x": 0, "font": {"size": 12}},

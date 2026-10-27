@@ -285,3 +285,19 @@ def test_escala_logaritmica_deixa_as_semanas_sem_caso_como_ponto_vazio_e_a_linea
     assert [list(t.y[1:]) for t in log.data] == [list(t.y[1:]) for t in linear.data]  # o resto é igual
     assert all(t.mode == "lines+markers" for t in log.data) and all(t.mode == "lines" for t in linear.data)
 
+
+
+def test_eixo_log_comeca_em_1_e_o_linear_fica_automatico():
+    import math
+
+    from graficos import figura_serie_semanal
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()  # o maior valor é 400
+    inicio = pd.Timestamp("2021-01-17")
+
+    log = figura_serie_semanal(semanal, por_comorbidade, inicio, "Logarítmica")
+    linear = figura_serie_semanal(semanal, por_comorbidade, inicio, "Linear")
+
+    assert log.layout.yaxis.range[0] == 0  # 10**0 = 1: nenhum rótulo abaixo de 1
+    assert math.log10(400) < log.layout.yaxis.range[1] < math.log10(400) + 0.5
+    assert linear.layout.yaxis.range is None
