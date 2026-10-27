@@ -52,12 +52,14 @@ def test_estatisticas_da_amostra_sintetica_a_mao(pasta_parquets):
     e = _estatisticas(pasta_parquets, [2020, 2021])
 
     # 2020: 14 casos. Sem UF: linha 11; UF inválida: XX; sem data: inválida e vazia; sem desfecho: EVOLUCAO 3, 9,
-    # vazio e 3; fora da série por estado: sem UF (1) + sem data (2).
+    # vazio e 3; fora da série por estado: sem UF (1) + UF inválida (1) + sem data (2).
     assert e[2020] == CAMPOS_ZERADOS | {
-        "linhas": 14, "sem_uf": 1, "uf_invalida": 1, "sem_data": 2, "sem_desfecho": 4, "fora_da_serie_estado": 3,
+        "linhas": 14, "sem_uf": 1, "uf_invalida": 1, "sem_data": 2, "sem_desfecho": 4, "fora_da_serie_estado": 4,
     }
     # 2021: 8 casos; UF inválida: ZZ; sem desfecho: EVOLUCAO 9.
-    assert e[2021] == CAMPOS_ZERADOS | {"linhas": 8, "uf_invalida": 1, "sem_desfecho": 1}
+    assert e[2021] == CAMPOS_ZERADOS | {
+        "linhas": 8, "uf_invalida": 1, "sem_desfecho": 1, "fora_da_serie_estado": 1,
+    }
 
 
 def test_achados_da_amostra_sintetica(pasta_parquets):
@@ -186,7 +188,7 @@ def test_relatorio_da_amostra_sintetica(pasta_parquets):
     assert list(relatorio["anos"]) == ["2020", "2021"]
     assert relatorio["anos"]["2020"]["sem_uf"] == 1
     assert relatorio["totais"] == CAMPOS_ZERADOS | {
-        "linhas": 22, "sem_uf": 1, "uf_invalida": 2, "sem_data": 2, "sem_desfecho": 5, "fora_da_serie_estado": 3,
+        "linhas": 22, "sem_uf": 1, "uf_invalida": 2, "sem_data": 2, "sem_desfecho": 5, "fora_da_serie_estado": 5,
     }
     # erros primeiro; depois por código e ano
     assert [(a["nivel"], a["codigo"], a["ano"]) for a in relatorio["achados"]] == [

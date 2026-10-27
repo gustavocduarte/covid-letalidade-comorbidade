@@ -42,11 +42,9 @@ def test_letalidade_por_comorbidade_valores_calculados_a_mao(con):
 def test_letalidade_por_estado_valores_calculados_a_mao(con):
     agregado = letalidade_por_estado_agregado(con)
 
-    # (casos, óbitos, desfechos conhecidos); o caso sem UF (2020, linha 11) fica de fora.
-    esperado = {
-        "MG": (3, 1, 1), "XX": (1, 1, 1), "RJ": (6, 3, 5), "BA": (3, 1, 2), "SP": (7, 3, 6), "ZZ": (1, 0, 1),
-    }
-    # taxa decrescente; empates (MG/XX = 1,0 e BA/SP = 0,5) em ordem alfabética
+    # (casos, óbitos, desfechos conhecidos); o caso sem UF (2020, linha 11) e os de UF inválida (XX, ZZ) ficam de fora.
+    esperado = {"MG": (3, 1, 1), "RJ": (6, 3, 5), "BA": (3, 1, 2), "SP": (7, 3, 6)}
+    # taxa decrescente; o empate (BA/SP = 0,5) em ordem alfabética
     assert list(agregado["sigla"]) == list(esperado)
     for linha in agregado.itertuples():
         assert (linha.casos, linha.obitos, linha.desfecho_conhecido) == esperado[linha.sigla]
@@ -85,12 +83,12 @@ def test_serie_semanal_por_estado_valores_calculados_a_mao(con):
     obtido = list(zip(serie["semana"].dt.strftime("%Y-%m-%d"), serie["sigla"], serie["casos"], strict=True))
     assert obtido == [
         ("2020-03-02", "SP", 2), ("2020-03-09", "MG", 2), ("2020-03-09", "RJ", 3),
-        ("2020-03-16", "MG", 1), ("2020-03-16", "SP", 1), ("2020-03-16", "XX", 1),
+        ("2020-03-16", "MG", 1), ("2020-03-16", "SP", 1),
         ("2020-12-28", "SP", 2),  # 30/dez/2020 + 01/jan/2021
         ("2021-01-04", "BA", 2), ("2021-01-04", "RJ", 2), ("2021-01-04", "SP", 1),
-        ("2021-01-11", "BA", 1), ("2021-01-11", "ZZ", 1),
+        ("2021-01-11", "BA", 1),
     ]
-    assert serie["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
+    assert serie["casos"].sum() == 17  # 20 com data válida, menos 1 sem UF e 2 com UF inválida (XX, ZZ)
 
 
 def test_ano_sem_casos_de_covid_gera_as_linhas_de_zero(tmp_path, csvs_sinteticos):

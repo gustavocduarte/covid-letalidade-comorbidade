@@ -19,7 +19,11 @@ from config import (
     EVOLUCAO_CURA,
     EVOLUCAO_OBITO,
     NOME_PARQUET_ANO,
+    UFS_VALIDAS,
 )
+
+# Lista SQL das 27 siglas: casos sem UF ou com UF fora dela ficam fora das tabelas por estado.
+_UFS_SQL = ", ".join(f"'{uf}'" for uf in UFS_VALIDAS)
 
 
 @contextmanager
@@ -111,8 +115,7 @@ def letalidade_por_comorbidade_agregado(con: duckdb.DuckDBPyConnection) -> pd.Da
 
 def _sql_letalidade_por_estado(por_ano: bool) -> str:
     chave = "ano, " if por_ano else ""
-    # Casos sem UF ficam de fora (o groupby do pandas também os descarta). Empate de taxa: a versão
-    # pandas ordena por sigla por ano e, no agregado, pela ordem alfabética do groupby.
+    # Casos sem UF ou com UF inválida ficam de fora. Empate de taxa: desempata pela sigla.
     ordem = "ano, sigla" if por_ano else "taxa_letalidade DESC NULLS LAST, sigla"
     return f"""
         WITH base AS (
@@ -121,7 +124,7 @@ def _sql_letalidade_por_estado(por_ano: bool) -> str:
                 count(*) FILTER (WHERE EVOLUCAO = {EVOLUCAO_OBITO}) AS obitos,
                 count(*) FILTER (WHERE EVOLUCAO IN ({EVOLUCAO_CURA}, {EVOLUCAO_OBITO})) AS desfecho_conhecido
             FROM casos
-            WHERE SG_UF IS NOT NULL
+            WHERE SG_UF IN ({_UFS_SQL})
             GROUP BY {chave}SG_UF
         )
         SELECT {chave}sigla, casos, obitos, desfecho_conhecido,
@@ -171,11 +174,11 @@ def serie_semanal_por_comorbidade(con: duckdb.DuckDBPyConnection) -> pd.DataFram
 
 
 def serie_semanal_por_estado(con: duckdb.DuckDBPyConnection) -> pd.DataFrame:
-    """Casos por semana e UF de residência; casos sem data válida ou sem UF ficam de fora."""
-    return con.execute("""
+    """Casos por semana e UF de residência; casos sem data válida, sem UF ou com UF inválida ficam de fora."""
+    return con.execute(f"""
         SELECT date_trunc('week', DT_SIN_PRI) AS semana, SG_UF AS sigla, count(*) AS casos
         FROM casos
-        WHERE DT_SIN_PRI IS NOT NULL AND SG_UF IS NOT NULL
+        WHERE DT_SIN_PRI IS NOT NULL AND SG_UF IN ({_UFS_SQL})
         GROUP BY semana, sigla
         ORDER BY semana, sigla
     """).df()

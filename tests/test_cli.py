@@ -123,7 +123,7 @@ def test_serie_estado_regrava_so_a_serie_a_partir_dos_parquets(monkeypatch, past
 
     assert [p.name for p in (tmp_path / "processed").iterdir()] == ["casos_covid_por_semana_estado.csv"]
     serie = pd.read_csv(tmp_path / "processed" / "casos_covid_por_semana_estado.csv")
-    assert serie["casos"].sum() == 19  # mesma soma do e2e do pipeline sobre a amostra
+    assert serie["casos"].sum() == 17  # mesma soma do e2e do pipeline sobre a amostra
 
 
 def test_serie_estado_sem_parquet_sai_com_3_e_nao_grava(monkeypatch, tmp_path, capsys):

@@ -72,7 +72,8 @@ def estatisticas_por_ano(con: duckdb.DuckDBPyConnection) -> dict[int, dict[str, 
             count(*) FILTER (WHERE EVOLUCAO IS NOT NULL AND EVOLUCAO NOT IN ({_lista_sql(EVOLUCAO_DOMINIO)}))
                 AS evolucao_invalida,
             count(*) FILTER (WHERE {comorbidade_invalida}) AS comorbidade_invalida,
-            count(*) FILTER (WHERE SG_UF IS NULL OR DT_SIN_PRI IS NULL) AS fora_da_serie_estado
+            count(*) FILTER (WHERE SG_UF IS NULL OR SG_UF NOT IN ({_lista_sql(UFS_VALIDAS)}) OR DT_SIN_PRI IS NULL)
+                AS fora_da_serie_estado
         FROM casos GROUP BY ano
     """).fetchall()
     por_ano = {ano: dict(zip(CAMPOS_ESTATISTICA, valores, strict=True)) for ano, *valores in linhas}
@@ -107,7 +108,8 @@ def validar_casos(estatisticas: dict[int, dict[str, int]]) -> list[Achado]:
                                   f"{ano}: {e['sem_uf']} casos sem UF; ficam fora das tabelas por estado."))
         if e["uf_invalida"]:
             achados.append(Achado(AVISO, "UF_INVALIDA", ano, e["uf_invalida"],
-                                  f"{ano}: {e['uf_invalida']} casos com UF que não é uma das 27 siglas."))
+                                  f"{ano}: {e['uf_invalida']} casos com UF que não é uma das 27 siglas; "
+                                  "ficam fora das tabelas por estado."))
         if e["sem_desfecho"] / linhas > LIMITE_SEM_DESFECHO:
             achados.append(Achado(AVISO, "SEM_DESFECHO_ACIMA_DO_LIMITE", ano, e["sem_desfecho"],
                                   f"{ano}: {e['sem_desfecho']} de {linhas} casos "
@@ -175,7 +177,8 @@ def validar_saidas(
 
     somas = {
         "ESTADO_DIFERE_DOS_CASOS": (
-            "casos por estado", int(estado["casos"].sum()), total["linhas"] - total["sem_uf"]),
+            "casos por estado", int(estado["casos"].sum()),
+            total["linhas"] - total["sem_uf"] - total["uf_invalida"]),
         "SERIE_SEMANAL_DIFERE_DOS_CASOS": (
             "série semanal", int(serie_semanal["casos"].sum()), total["linhas"] - total["sem_data"]),
         "SERIE_ESTADO_DIFERE_DOS_CASOS": (

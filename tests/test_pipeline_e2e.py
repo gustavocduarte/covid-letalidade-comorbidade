@@ -157,18 +157,13 @@ def test_serie_semanal_por_comorbidade(saidas):
 
 def test_serie_semanal_por_estado_ignora_data_invalida_e_uf_vazia(saidas):
     df = pd.read_csv(saidas / "casos_covid_por_semana_estado.csv")
-    assert len(df) == 12
-    assert df["casos"].sum() == 19  # 20 com data válida, menos 1 sem UF
+    assert len(df) == 10
+    assert df["casos"].sum() == 17  # 20 com data válida, menos 1 sem UF e 2 com UF inválida (XX, ZZ)
     assert _linha(df, semana="2020-12-28", sigla="SP").casos == 2  # a virada do ano soma os dois arquivos
 
 
-# Decisão para a etapa de validação: casos sem UF continuam fora da tabela por estado; o pipeline
-# registra a contagem e o dashboard avisa ("N casos sem estado informado não entram no mapa").
-# Nos dados reais só há UF vazia (333 casos), não inválida; revisar este teste nessa etapa.
-@pytest.mark.xfail(
-    strict=True,
-    reason="UF inválida ou vazia não é validada nem filtrada; resolver na validação de dados",
-)
+# Casos sem UF ou com UF inválida ficam fora da tabela por estado; o relatório conta os dois
+# e o dashboard avisa ("N casos sem estado informado não entram no mapa").
 def test_letalidade_por_estado_so_com_ufs_validas(saidas):
     df = pd.read_csv(saidas / "letalidade_por_estado_agregado.csv")
 

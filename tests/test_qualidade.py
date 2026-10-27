@@ -44,6 +44,15 @@ def test_aviso_so_com_relatorio_aprovado_e_casos_sem_estado(relatorio_em, aprova
     assert aviso_casos_sem_estado() == esperado
 
 
+def test_aviso_soma_uf_vazia_e_uf_invalida(relatorio_em):
+    relatorio_em(aprovado=True, sem_uf=3)
+    qualidade.CAMINHO_RELATORIO.write_text(
+        json.dumps({"aprovado": True, "totais": {"sem_uf": 3, "uf_invalida": 2}}), encoding="utf-8",
+    )
+
+    assert aviso_casos_sem_estado() == "5 casos sem estado informado não entram no mapa."
+
+
 def test_relatorio_ilegivel_nao_gera_aviso(relatorio_em):
     relatorio_em(aprovado=True, sem_uf=5)
     qualidade.CAMINHO_RELATORIO.write_text("{ isto não é json", encoding="utf-8")
