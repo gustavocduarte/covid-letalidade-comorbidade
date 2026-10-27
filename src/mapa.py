@@ -115,7 +115,7 @@ def cor_texto_contraste(
 ) -> str:
     """`claro` ou `escuro` para o texto sobre a cor da escala naquele valor.
 
-    O claro vale até o escuro ter 1,6 vez o contraste (WCAG) dele: em fundos de tom médio, texto pequeno claro
+    O claro vale até o escuro ter 2,5 vezes o contraste (WCAG) dele: em fundos de tom médio, texto pequeno claro
     lê melhor que o escuro, mesmo com contraste calculado um pouco menor."""
     posicao = 0.5 if maximo == minimo else (valor - minimo) / (maximo - minimo)
     fundo = luminancia_relativa(cor_na_escala(posicao, escala))
@@ -124,4 +124,48 @@ def cor_texto_contraste(
         luz = luminancia_relativa(_hex_para_rgb(cor))
         return (max(fundo, luz) + 0.05) / (min(fundo, luz) + 0.05)
 
-    return claro if contraste(claro) * 1.6 >= contraste(escuro) else escuro
+    return claro if contraste(claro) * 2.5 >= contraste(escuro) else escuro
+
+
+def _area_e_centroide_anel(anel: list[list[float]]) -> tuple[float, tuple[float, float]]:
+    """Área (com sinal) e centroide de um anel de polígono, pela fórmula padrão de
+    centroide de polígono — só soma/multiplicação, sem nenhuma biblioteca geoespacial
+    (evitamos shapely/geopandas de propósito, essa máquina tem pouca memória livre)."""
+    area = 0.0
+    cx = 0.0
+    cy = 0.0
+    n = len(anel)
+    for i in range(n - 1):  # o último ponto do anel repete o primeiro, no padrão GeoJSON
+        x0, y0 = anel[i]
+        x1, y1 = anel[i + 1]
+        cruz = x0 * y1 - x1 * y0
+        area += cruz
+        cx += (x0 + x1) * cruz
+        cy += (y0 + y1) * cruz
+    area /= 2.0
+    if area == 0:
+        xs = [p[0] for p in anel]
+        ys = [p[1] for p in anel]
+        return 0.0, (sum(xs) / len(xs), sum(ys) / len(ys))
+    cx /= 6 * area
+    cy /= 6 * area
+    return abs(area), (cx, cy)
+
+
+def centro_aproximado(geometria: dict) -> tuple[float, float]:
+    """Centro aproximado (lon, lat) de um Polygon/MultiPolygon: usa o maior anel externo,
+    pra ilhas distantes (ex: Fernando de Noronha, em Pernambuco) não puxarem o centro
+    do rótulo pra longe do corpo principal do estado."""
+    if geometria["type"] == "Polygon":
+        aneis = [geometria["coordinates"][0]]
+    else:
+        aneis = [poligono[0] for poligono in geometria["coordinates"]]
+
+    maior_area = -1.0
+    melhor_centro = None
+    for anel in aneis:
+        area, centro = _area_e_centroide_anel(anel)
+        if area > maior_area:
+            maior_area = area
+            melhor_centro = centro
+    return melhor_centro

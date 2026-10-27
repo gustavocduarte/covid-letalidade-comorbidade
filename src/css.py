@@ -21,7 +21,7 @@ CSS_DA_PAGINA = Template("""<style>
 [class*="st-key-barra_"][class*="_ativa"] a, [class*="st-key-barra_"][class*="_ativa"] a p { color: $principal; }
 .st-key-barra_rodape { background-color: transparent; border-color: transparent; }
 .st-key-barra_rodape p, .st-key-barra_rodape a { font-size: 13px; color: $secundario; }
-[data-testid="stMainBlockContainer"] { padding-top: 3rem; }
+[data-testid="stMainBlockContainer"] { padding-top: 4rem; }
 .cv-titulo-pagina { font-size: 1.4rem; font-weight: 700; line-height: 1.2; }
 .cv-marca { font-size: 1rem; font-weight: 700; padding: .25rem .25rem .5rem; }
 .cv-divisoria { border-top: 1px solid $borda; margin: .25rem 0 .75rem; }

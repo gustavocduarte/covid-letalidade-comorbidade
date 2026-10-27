@@ -7,11 +7,17 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
-from config import ALTURA_MAPA_PX, CAMINHO_GEOJSON, LARGURA_REFERENCIA_MAPA_PX
+from config import ALTURA_MAPA_PX, CAMINHO_GEOJSON, LARGURA_REFERENCIA_MAPA_PX, PAGINAS
 from mapa import enquadramento, limites_do_geojson
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
+
+
+def _tela_de_tempo() -> AppTest:
+    """A página "Linha do tempo e estados", onde ficam o mapa e o aviso dos casos sem estado."""
+    pagina = next(p for p in PAGINAS if p.titulo == "Linha do tempo e estados")
+    return AppTest.from_file(str(DASHBOARD), default_timeout=120).run().switch_page(pagina.arquivo).run()
 
 
 def _relatorio(caminho: Path, *, aprovado: bool, sem_uf: int) -> Path:
@@ -65,7 +71,7 @@ def test_relatorio_ilegivel_nao_gera_aviso(relatorio_em):
 
 
 def _avisos_na_tela() -> list[str]:
-    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = _tela_de_tempo()
     assert not tela.exception
     return [info.value for info in tela.info if "sem estado informado" in info.value]
 
@@ -87,7 +93,7 @@ def test_dashboard_com_o_relatorio_versionado_avisa_dos_333_casos():
 
 
 def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
-    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = _tela_de_tempo()
     assert not tela.exception
     assert "Letalidade de COVID por estado" in [s.value for s in tela.subheader]
     # O gráfico do mapa é o que tem a camada choroplethmap; o estilo precisa ser embutido (sem rede).
@@ -101,7 +107,7 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
 
 
 def test_mapa_de_estados_usa_o_enquadramento_calculado_do_geojson():
-    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+    tela = _tela_de_tempo()
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
     mapa = next(m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"]))
 

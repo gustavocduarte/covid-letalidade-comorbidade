@@ -1,5 +1,7 @@
 """Constantes do projeto: caminhos, fontes de dados, colunas e códigos do SIVEP-Gripe."""
 
+from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parent.parent
@@ -135,3 +137,53 @@ ESTILO_MAPA = {
     "layers": [{"id": "fundo", "type": "background", "paint": {"background-opacity": 0}}],
     "glyphs": "https://fonts.openmaptiles.org/{fontstack}/{range}.pbf",
 }
+
+# CSVs de saída que o dashboard lê (só estes, o relatório e o GeoJSON).
+CAMINHO_AGREGADO = PROCESSED_DIR / NOME_AGREGADO
+CAMINHO_SEMANAL = PROCESSED_DIR / NOME_SEMANAL
+CAMINHO_SEMANAL_COMORBIDADE = PROCESSED_DIR / NOME_SEMANAL_COMORBIDADE
+CAMINHO_ESTADO = PROCESSED_DIR / NOME_ESTADO
+CAMINHO_SEMANAL_ESTADO = PROCESSED_DIR / NOME_SEMANAL_ESTADO
+CAMINHO_RESUMO_GERAL = PROCESSED_DIR / NOME_RESUMO_GERAL
+
+# Início da vacinação contra COVID-19 no Brasil.
+DATA_INICIO_VACINACAO = date(2021, 1, 17)
+
+# Páginas do dashboard: `arquivo` é relativo a src/ (onde fica o dashboard.py); `url` vai no endereço.
+TITULO_APP = "Letalidade de COVID-19 · SRAG"
+URL_REPOSITORIO = "https://github.com/gustavocduarte/covid-letalidade-comorbidade"
+
+
+@dataclass(frozen=True)
+class PaginaApp:
+    chave: str
+    titulo: str
+    arquivo: str
+    url: str
+    icone: str
+    descricoes: tuple[str, ...]
+    padrao: bool = False
+
+
+PAGINAS = (
+    PaginaApp(
+        chave="comorbidades",
+        titulo="Comorbidades",
+        arquivo="paginas/comorbidades.py",
+        url="comorbidades",
+        icone=":material/format_list_bulleted:",
+        descricoes=(
+            "Taxa de letalidade de casos de COVID-19 hospitalizados (SRAG) com e sem cada comorbidade, 2020–2026",
+            "Letalidade = óbitos ÷ (óbitos + curas), só casos com desfecho conhecido. 2026 é ano parcial.",
+        ),
+        padrao=True,
+    ),
+    PaginaApp(
+        chave="tempo_estados",
+        titulo="Linha do tempo e estados",
+        arquivo="paginas/tempo_estados.py",
+        url="tempo-e-estados",
+        icone=":material/show_chart:",
+        descricoes=("Casos semanais de COVID-19 hospitalizados (SRAG) no Brasil e por estado, 2020–2026",),
+    ),
+)
