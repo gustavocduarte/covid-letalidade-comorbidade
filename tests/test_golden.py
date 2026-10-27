@@ -171,10 +171,11 @@ def test_segunda_execucao_esta_em_dia_e_gera_as_mesmas_saidas(saidas_geradas):
     arquivos = [*SAIDAS, NOME_RELATORIO]
     antes = {nome: (saidas_geradas / nome).read_bytes() for nome in arquivos}
     base = saidas_geradas.parent.parent
-    comando = "import json, pipeline; print(json.dumps(pipeline.executar_pipeline()))"
+    arquivo_status = base / "status.json"
+    comando = "import json, sys, pipeline; open(sys.argv[1], 'w').write(json.dumps(pipeline.executar_pipeline()))"
 
-    resultado = _rodar(base, ["-c", comando])
+    _rodar(base, ["-c", comando, str(arquivo_status)])
 
-    status = json.loads(resultado.stdout.strip().splitlines()[-1])
+    status = json.loads(arquivo_status.read_text(encoding="utf-8"))
     assert status == {str(ano): "em_dia" for ano in URLS_SRAG}
     assert {nome: (saidas_geradas / nome).read_bytes() for nome in arquivos} == antes
