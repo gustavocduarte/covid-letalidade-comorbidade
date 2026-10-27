@@ -235,3 +235,14 @@ def test_hover_de_todos_os_graficos_tem_fundo_escuro_e_texto_claro():
         assert (rotulo.bgcolor, rotulo.bordercolor) == (COR_FUNDO_PAINEL, COR_BORDA)
         assert rotulo.font.color == COR_TEXTO and rotulo.font.family == FONTE_DOS_GRAFICOS
 
+
+
+def test_hover_unificado_das_series_tem_a_data_em_dd_mm_aaaa_no_titulo():
+    from graficos import figura_serie_semanal
+
+    semanal, por_comorbidade = _semanal_e_comorbidades()
+
+    figura = figura_serie_semanal(semanal, por_comorbidade, pd.Timestamp("2021-01-17"))
+
+    assert figura.layout.xaxis.hoverformat == "%d/%m/%Y"
+    assert all("%{x" not in t.hovertemplate for t in figura.data)  # a data já vem no título do hover

@@ -127,7 +127,7 @@ def figura_serie_semanal(
     figura.add_trace(go.Scatter(
         x=total["semana"], y=total["casos"], mode="lines", name="Brasil", fill="tozeroy" if not logaritmica else None,
         line={"color": COR_PRINCIPAL, "width": 2}, fillcolor="rgba(34,211,238,0.12)",
-        hovertemplate="Brasil<br>%{x|%d/%m/%Y}: %{y:,} casos<extra></extra>",
+        hovertemplate="Brasil: %{y:,} casos<extra></extra>",
     ))
     for cor, (nome, grupo) in zip(SEQUENCIA_CORES_SERIES, por_comorbidade.groupby("nome"), strict=False):
         grupo = grupo.sort_values("semana")
@@ -135,7 +135,7 @@ def figura_serie_semanal(
             grupo = grupo[grupo["casos"] > 0]
         figura.add_trace(go.Scatter(
             x=grupo["semana"], y=grupo["casos"], mode="lines", name=nome, line={"color": cor, "width": 2},
-            hovertemplate=nome + "<br>%{x|%d/%m/%Y}: %{y:,} casos<extra></extra>",
+            hovertemplate=nome + ": %{y:,} casos<extra></extra>",
         ))
     figura.add_shape(
         type="line", x0=inicio_vacinacao, x1=inicio_vacinacao, y0=0, y1=1, yref="paper",
@@ -230,10 +230,7 @@ def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -
         figura.add_trace(go.Scatter(
             x=grupo["semana"], y=grupo["pct_do_pico"], mode="lines", name=nomes_estados[sigla],
             line={"color": cor, "width": 2}, customdata=grupo["casos"],
-            hovertemplate=(
-                f"<b>{nomes_estados[sigla]}</b><br>%{{x|%d/%m/%Y}}<br>%{{y:.0f}}% do pico"
-                "<br>%{customdata:,} casos<extra></extra>"
-            ),
+            hovertemplate=f"<b>{nomes_estados[sigla]}</b>: %{{y:.0f}}% do pico (%{{customdata:,}} casos)<extra></extra>",
         ))
     aplicar_template_grafico(figura)
     aplicar_eixo_de_datas(figura, curvas["semana"].min(), curvas["semana"].max())

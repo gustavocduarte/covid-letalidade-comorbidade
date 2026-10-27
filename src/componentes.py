@@ -41,7 +41,7 @@ def aplicar_template_grafico(figura: go.Figure) -> go.Figure:
 def aplicar_eixo_de_datas(figura: go.Figure, inicio: pd.Timestamp, fim: pd.Timestamp) -> go.Figure:
     """Eixo x de datas com os meses em português ("abr/21"), sem depender de arquivo de idioma do Plotly."""
     posicoes, textos = marcas_de_data(inicio, fim)
-    figura.update_xaxes(tickmode="array", tickvals=posicoes, ticktext=textos, range=[inicio, fim])
+    figura.update_xaxes(tickmode="array", tickvals=posicoes, ticktext=textos, range=[inicio, fim], hoverformat="%d/%m/%Y")  # título do hover sem mês em inglês
     return figura
 
 
