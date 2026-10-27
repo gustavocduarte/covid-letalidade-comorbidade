@@ -1,20 +1,19 @@
 """Página Comorbidades: letalidade com e sem cada comorbidade."""
 
 
-import altair as alt
 import pandas as pd
 import streamlit as st
 
-from componentes import html_kpi
+from componentes import exibir_grafico, html_kpi, html_titulo_painel
 from config import (
     CAMINHO_AGREGADO,
     CAMINHO_RESUMO_GERAL,
     COR_COM_COMORBIDADE,
-    COR_GRADE,
     COR_SEM_COMORBIDADE,
     COR_TEXTO,
     NOMES_COMORBIDADES,
 )
+from graficos import figura_dumbbell
 from indicadores import kpis_comorbidades, preparar_agregado
 
 _agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
@@ -23,20 +22,19 @@ st.html('<div class="cv-kpis">' + "".join(
     html_kpi(k.rotulo, k.valor, k.linha, k.cor, k.ajuda) for k in kpis_comorbidades(_agregado, _resumo)
 ) + "</div>")
 
-st.info(
-    "**Fonte:** SIVEP-Gripe (SRAG) / Ministério da Saúde, via OpenDataSUS. "
-    "Taxa de letalidade = óbitos / (óbitos + curas), entre casos com desfecho conhecido.\n\n"
-    "Cada par de barras compara dois grupos separados de pacientes — quem tinha a comorbidade "
-    "e quem não tinha. As duas taxas não somam entre si; são percentuais independentes.\n\n"
-    "Os números abaixo somam os 7 anos (2020–2026). **2026 é um ano parcial** (dados só até o "
-    "mês mais recente coletado pelo Ministério da Saúde), mas já está incluído nesse total."
-)
-
-st.markdown(
-    f'<div style="height:4px;border-radius:2px;margin:1.5rem 0 1rem 0;'
-    f'background:linear-gradient(to right, {COR_COM_COMORBIDADE}, {COR_SEM_COMORBIDADE});"></div>',
-    unsafe_allow_html=True,
-)
+with st.container(border=True, key="painel_dumbbell"):
+    st.html(
+        html_titulo_painel(
+            "Letalidade com e sem a comorbidade",
+            "Cada linha compara dois grupos separados: quem tinha a comorbidade e quem não tinha. "
+            "As taxas não somam entre si.",
+        )
+        + '<div class="cv-legenda">'
+        f'<span><i style="background:{COR_COM_COMORBIDADE}"></i>Com a comorbidade</span>'
+        f'<span><i style="background:{COR_SEM_COMORBIDADE}"></i>Sem a comorbidade</span></div>'
+    )
+    exibir_grafico(figura_dumbbell(_agregado))
+    st.caption("Valores ao passar o mouse: taxa com, taxa sem e número de casos de cada grupo.")
 
 df = pd.read_csv(CAMINHO_AGREGADO)
 df["comorbidade"] = df["comorbidade"].map(NOMES_COMORBIDADES)
@@ -47,52 +45,6 @@ df["taxa_letalidade_com"] = df["taxa_letalidade_com"] * 100
 df["taxa_letalidade_sem"] = df["taxa_letalidade_sem"] * 100
 
 df = df.sort_values("taxa_letalidade_com", ascending=False)
-
-with st.container(border=True):
-    st.subheader("Taxa de letalidade: com a comorbidade vs. sem")
-
-    # Ordem das comorbidades no eixo (mesma ordem em que o DataFrame já está: maior -> menor).
-    ordem_comorbidades = df["comorbidade"].tolist()
-
-    # st.bar_chart não dá controle suficiente sobre orientação horizontal + rótulos de valor
-    # + cores de eixo/grade ao mesmo tempo, então aqui usamos o Altair diretamente (biblioteca
-    # que o próprio Streamlit usa por baixo dos panos). Isso exige os dados em formato "longo":
-    # uma linha por combinação de comorbidade + grupo (com/sem), em vez de uma coluna por grupo.
-    df_grafico = df.melt(
-        id_vars="comorbidade",
-        value_vars=["taxa_letalidade_com", "taxa_letalidade_sem"],
-        var_name="grupo",
-        value_name="taxa",
-    )
-    df_grafico["grupo"] = df_grafico["grupo"].map({
-        "taxa_letalidade_com": "Com a comorbidade",
-        "taxa_letalidade_sem": "Sem a comorbidade",
-    })
-
-    base = alt.Chart(df_grafico).encode(
-        y=alt.Y("comorbidade:N", sort=ordem_comorbidades, title=None,
-                axis=alt.Axis(labelColor=COR_TEXTO, labelLimit=280, labelFontSize=12)),
-        yOffset=alt.YOffset("grupo:N", sort=["Com a comorbidade", "Sem a comorbidade"]),
-        x=alt.X("taxa:Q", title="Taxa de letalidade (%)",
-                axis=alt.Axis(labelColor=COR_TEXTO, titleColor=COR_TEXTO, gridColor=COR_GRADE)),
-        color=alt.Color(
-            "grupo:N",
-            scale=alt.Scale(domain=["Com a comorbidade", "Sem a comorbidade"],
-                             range=[COR_COM_COMORBIDADE, COR_SEM_COMORBIDADE]),
-            legend=alt.Legend(title=None, labelColor=COR_TEXTO, orient="top"),
-        ),
-    )
-    barras = base.mark_bar()
-    rotulos = base.mark_text(align="left", dx=4, color=COR_TEXTO, fontSize=11).encode(
-        text=alt.Text("taxa:Q", format=".1f")
-    )
-
-    grafico_final = (
-        (barras + rotulos)
-        .properties(height=480, background="transparent")
-        .configure_view(strokeWidth=0)
-    )
-    st.altair_chart(grafico_final, width="stretch")
 
 st.subheader("Tabela completa")
 # Seleciona só as colunas de exibição — o df também carrega obitos_com/desfecho_conhecido_com

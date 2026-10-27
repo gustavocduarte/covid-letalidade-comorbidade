@@ -36,6 +36,9 @@ CSS_DA_PAGINA = Template("""<style>
   font-size: 1.75rem; font-weight: 600; white-space: nowrap; color: $texto; }
 .cv-linha { font-size: .8rem; color: $secundario; min-height: 1.2em; }
 .cv-cabecalho { display: flex; justify-content: space-between; align-items: center; gap: .75rem; }
+.cv-legenda { display: flex; gap: 1rem; font-size: 12px; color: $secundario; margin: .25rem 0; }
+.cv-legenda span { display: flex; align-items: center; gap: 6px; }
+.cv-legenda i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .cv-linha-tabela { border-top: 1px solid $linha; }
 </style>""").substitute(
     painel=COR_FUNDO_PAINEL, borda=COR_BORDA, principal=COR_PRINCIPAL, secundario=COR_TEXTO_SECUNDARIO,
