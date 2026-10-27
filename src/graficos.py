@@ -112,6 +112,7 @@ def figura_por_ano(todos_anos: pd.DataFrame, comorbidade: str) -> go.Figure:
 ESCALAS_SERIE = ("Linear", "Logarítmica")
 ROTULO_VACINACAO = "Início da vacinação"
 ALTURA_SERIE_PX = 380
+PONTOS_DO_EIXO_PCT = [0, 25, 50, 75, 100]
 
 
 def figura_serie_semanal(
@@ -242,7 +243,7 @@ def figura_curvas_estados(curvas: pd.DataFrame, nomes_estados: dict[str, str]) -
     aplicar_eixo_de_datas(figura, curvas["semana"].min(), curvas["semana"].max())
     figura.update_xaxes(showgrid=False, tickfont={"color": COR_EIXO, "size": 10})
     figura.update_yaxes(
-        range=[0, 105], ticksuffix="%", tickvals=[0, 25, 50, 75, 100], tickfont={"color": COR_EIXO, "size": 10},
+        range=[0, 105], tickvals=PONTOS_DO_EIXO_PCT, ticktext=[f"{v}%" for v in PONTOS_DO_EIXO_PCT], tickfont={"color": COR_EIXO, "size": 10},
         automargin=True,
     )
     figura.update_layout(

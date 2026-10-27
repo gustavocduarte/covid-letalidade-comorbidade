@@ -209,4 +209,4 @@ def test_curvas_dos_estados_tem_uma_linha_por_estado_em_percentual_do_pico():
 
     assert [t.name for t in figura.data] == ["Minas Gerais", "São Paulo"]
     assert list(figura.data[1].y) == [25, 100, 50]
-    assert figura.layout.yaxis.ticksuffix == "%" and figura.layout.yaxis.automargin  # rótulos do eixo não cortam
+    assert list(figura.layout.yaxis.ticktext) == ["0%", "25%", "50%", "75%", "100%"] and figura.layout.yaxis.automargin  # rótulos do eixo não cortam
