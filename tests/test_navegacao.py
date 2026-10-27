@@ -148,12 +148,12 @@ def test_estados_alternam_entre_mapa_e_blocos():
     def tipos(t):
         return [d["type"] for g in t.get("plotly_chart") for d in json.loads(g.proto.spec)["data"]]
 
-    assert "choroplethmap" in tipos(tela) and "heatmap" not in tipos(tela)
+    assert "choropleth" in tipos(tela) and "heatmap" not in tipos(tela)
 
     alternador = next(b for b in tela.get("button_group") if b.proto.id and "Tipo de mapa" in str(b.proto.label))
     tela = alternador.set_value("Blocos").run()
 
-    assert not tela.exception and "heatmap" in tipos(tela) and "choroplethmap" not in tipos(tela)
+    assert not tela.exception and "heatmap" in tipos(tela) and "choropleth" not in tipos(tela)
 
 
 def test_curvas_por_estado_abrem_com_mg_rj_sp_e_acompanham_a_escolha():

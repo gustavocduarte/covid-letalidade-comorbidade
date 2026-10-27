@@ -1,6 +1,7 @@
 """Enquadramento do mapa por estado: centro e zoom que acomodam o Brasil no quadro do gráfico."""
 
 import math
+from itertools import pairwise
 
 # O MapLibre usa tiles de 512 px: o mundo todo tem 512 * 2**zoom px de largura (projeção Mercator).
 TILE_PX = 512
@@ -169,3 +170,31 @@ def centro_aproximado(geometria: dict) -> tuple[float, float]:
             maior_area = area
             melhor_centro = centro
     return melhor_centro
+
+
+def _area_assinada(anel: list[list[float]]) -> float:
+    return sum(a[0] * b[1] - b[0] * a[1] for a, b in pairwise(anel)) / 2
+
+
+def _orientar_poligono(aneis: list[list[list[float]]]) -> list[list[list[float]]]:
+    """Anel externo no sentido horário e buracos no anti-horário, que é a convenção do d3-geo (usado pelo Plotly)."""
+    return [
+        anel if (_area_assinada(anel) < 0) == (i == 0) else anel[::-1]
+        for i, anel in enumerate(aneis)
+    ]
+
+
+def geojson_para_plotly(geojson: dict) -> dict:
+    """Cópia do GeoJSON com os anéis na orientação que o `go.Choropleth` espera.
+
+    O GeoJSON padrão (RFC 7946) traz o anel externo anti-horário; no d3-geo isso significa "todo o globo menos o
+    polígono", e cada estado sai como um retângulo cobrindo o mapa.
+    """
+    estados = []
+    for feature in geojson["features"]:
+        geometria = feature["geometry"]
+        poligonos = [geometria["coordinates"]] if geometria["type"] == "Polygon" else geometria["coordinates"]
+        orientados = [_orientar_poligono(p) for p in poligonos]
+        coordenadas = orientados[0] if geometria["type"] == "Polygon" else orientados
+        estados.append({**feature, "geometry": {**geometria, "coordinates": coordenadas}})
+    return {**geojson, "features": estados}

@@ -229,3 +229,5 @@ TIPOS_DE_MAPA = ("Mapa", "Blocos")
 # Estados já marcados ao comparar as curvas, e o máximo que cabe nas cores da paleta de séries.
 ESTADOS_COMPARADOS_INICIAIS = ("MG", "RJ", "SP")
 MAXIMO_ESTADOS_COMPARADOS = 6
+# Estados pequenos demais para o número de casos caber sobre eles no mapa (o valor completo fica no hover).
+SIGLAS_SEM_NUMERO_NO_MAPA = ("ES", "RJ", "SE", "AL", "PB", "RN", "PE", "DF")

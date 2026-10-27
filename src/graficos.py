@@ -3,7 +3,6 @@
 import math
 
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 
 from componentes import aplicar_eixo_de_datas, aplicar_template_grafico
@@ -16,14 +15,13 @@ from config import (
     COR_PRINCIPAL,
     COR_SEM_COMORBIDADE,
     ESCALA_LETALIDADE,
-    ESTILO_MAPA,
     GRADE_ESTADOS,
-    LARGURA_REFERENCIA_MAPA_PX,
     SEQUENCIA_CORES_SERIES,
+    SIGLAS_SEM_NUMERO_NO_MAPA,
 )
 from formatacao import fmt_decimal, fmt_inteiro, fmt_pontos
 from indicadores import COR_DA_CLASSE, classe_da_diferenca
-from mapa import enquadramento, limites_do_geojson, siglas_com_rotulo
+from mapa import geojson_para_plotly
 
 ALTURA_POR_LINHA_PX = 36
 OPACIDADE_AMOSTRA_PEQUENA = 0.7
@@ -166,33 +164,31 @@ TAMANHO_ROTULO_MAPA = 8
 
 
 def figura_mapa_estados(estados: pd.DataFrame, geojson: dict) -> go.Figure:
-    """Mapa dos estados coloridos pela letalidade, com o número de casos só onde cabe (os demais, no hover).
+    """Mapa dos estados coloridos pela letalidade, com o número de casos nos estados em que ele cabe.
 
-    `estados` sai de `preparar_estados`. Usa `choropleth_map` (WebGL/MapLibre): o `choropleth` em SVG desenhava
-    todos os estados na mesma caixa nos navegadores testados.
+    `estados` sai de `preparar_estados`. É um mapa vetorial (`go.Choropleth` em SVG): sem mapa-base, sem serviço
+    externo e com o enquadramento calculado pelo próprio Plotly, que acompanha a largura do quadro.
     """
-    centro, zoom = enquadramento(limites_do_geojson(geojson), LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX)
-    mapa = px.choropleth_map(
-        estados, geojson=geojson, locations="sigla", featureidkey="properties.sigla", color="taxa_letalidade",
-        color_continuous_scale=list(ESCALA_LETALIDADE), hover_name="nome",
-        hover_data={"sigla": False, "taxa_letalidade": ":.1f", "casos_fmt": True},
-        labels={"taxa_letalidade": TITULO_ESCALA_LETALIDADE, "casos_fmt": "Casos de COVID"},
-        map_style=ESTILO_MAPA, center=centro, zoom=zoom, opacity=1,
-    )
-    com_rotulo = siglas_com_rotulo(
-        geojson, zoom, dict(zip(estados["sigla"], estados["casos_fmt"], strict=True)),
-        dict(zip(estados["sigla"], zip(estados["lon_centro"], estados["lat_centro"], strict=True), strict=True)),
-    )
+    figura = go.Figure(go.Choropleth(
+        geojson=geojson_para_plotly(geojson), locations=estados["sigla"], featureidkey="properties.sigla", z=estados["taxa_letalidade"],
+        colorscale=list(ESCALA_LETALIDADE), customdata=estados[["nome", "casos_fmt"]].to_numpy(),
+        hovertemplate="<b>%{customdata[0]}</b><br>Letalidade: %{z:.1f}%<br>Casos de COVID: %{customdata[1]}<extra></extra>",
+        marker={"line": {"color": COR_FUNDO_PAGINA, "width": 0.8}},
+        colorbar={"title": {"text": TITULO_ESCALA_LETALIDADE}, "thickness": 10},
+    ))
     # textfont.color só aceita uma cor por camada: um grupo de rótulos para cada cor.
-    for cor, grupo in estados[estados["sigla"].isin(com_rotulo)].groupby("cor_rotulo"):
-        mapa.add_trace(go.Scattermap(
+    com_rotulo = estados[~estados["sigla"].isin(SIGLAS_SEM_NUMERO_NO_MAPA)]
+    for cor, grupo in com_rotulo.groupby("cor_rotulo"):
+        figura.add_trace(go.Scattergeo(
             lat=grupo["lat_centro"], lon=grupo["lon_centro"], mode="text", text=grupo["casos_fmt"],
             textfont={"size": TAMANHO_ROTULO_MAPA, "color": cor}, hoverinfo="skip", showlegend=False,
         ))
-    aplicar_template_grafico(mapa)
-    mapa.update_traces(marker_line_color=COR_FUNDO_PAGINA, marker_line_width=0.8, selector={"type": "choroplethmap"})
-    mapa.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
-    return mapa
+    aplicar_template_grafico(figura)
+    figura.update_geos(
+        fitbounds="locations", visible=False, projection_type="mercator", bgcolor="rgba(0,0,0,0)",
+    )
+    figura.update_layout(height=ALTURA_MAPA_PX, margin={"l": 0, "r": 0, "t": 0, "b": 0})
+    return figura
 
 
 def figura_blocos_estados(estados: pd.DataFrame) -> go.Figure:

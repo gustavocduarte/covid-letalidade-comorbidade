@@ -7,8 +7,7 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 import qualidade
-from config import ALTURA_MAPA_PX, CAMINHO_GEOJSON, LARGURA_REFERENCIA_MAPA_PX, PAGINAS
-from mapa import enquadramento, limites_do_geojson
+from config import PAGINAS, SIGLAS_SEM_NUMERO_NO_MAPA
 from qualidade import aviso_casos_sem_estado
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "src" / "dashboard.py"
@@ -96,22 +95,21 @@ def test_mapa_de_estados_nao_depende_de_mapa_base_externo():
     tela = _tela_de_tempo()
     assert not tela.exception
     assert "Letalidade por estado" in " ".join(h.proto.body for h in tela.get("html"))
-    # O gráfico do mapa é o que tem a camada choroplethmap; o estilo precisa ser embutido (sem rede).
+    # O mapa é vetorial (camada choropleth em `geo`): nenhuma camada de mapa com tiles ou estilo externo.
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
-    mapas = [m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"])]
+    mapas = [m for m in mapas if any(t["type"] == "choropleth" for t in m["data"])]
     assert len(mapas) == 1
-    estilo = mapas[0]["layout"]["map"]["style"]
-    # estilo embutido: sem fonte de tiles (o antigo "carto-positron" baixava o mapa-base de um CDN)
-    assert isinstance(estilo, dict) and estilo["sources"] == {}
-    assert {camada["type"] for camada in estilo["layers"]} == {"background"}
+    tipos = {t["type"] for t in mapas[0]["data"]}
+    assert tipos == {"choropleth", "scattergeo"}
+    assert "map" not in mapas[0]["layout"] and "mapbox" not in mapas[0]["layout"]
+    assert mapas[0]["layout"]["geo"]["fitbounds"] == "locations"
 
 
-def test_mapa_de_estados_usa_o_enquadramento_calculado_do_geojson():
+def test_mapa_de_estados_deixa_sem_numero_so_os_estados_pequenos():
     tela = _tela_de_tempo()
     mapas = [json.loads(g.proto.spec) for g in tela.get("plotly_chart")]
-    mapa = next(m for m in mapas if any(t["type"] == "choroplethmap" for t in m["data"]))
+    mapa = next(m for m in mapas if any(t["type"] == "choropleth" for t in m["data"]))
 
-    limites = limites_do_geojson(json.loads(CAMINHO_GEOJSON.read_text(encoding="utf-8")))
-    centro, zoom = enquadramento(limites, LARGURA_REFERENCIA_MAPA_PX, ALTURA_MAPA_PX)
-    assert mapa["layout"]["map"]["zoom"] == pytest.approx(zoom)
-    assert mapa["layout"]["map"]["center"] == pytest.approx(centro)
+    numeros = [n for t in mapa["data"] if t["type"] == "scattergeo" for n in t["text"]]
+    assert len(numeros) == 27 - len(SIGLAS_SEM_NUMERO_NO_MAPA)
+    assert "665.970" in numeros  # São Paulo tem número
