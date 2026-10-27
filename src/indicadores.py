@@ -149,3 +149,34 @@ def achados_comorbidades(agregado_preparado: pd.DataFrame) -> list[Achado]:
         cartoes.append(Achado(nomes, texto))
     cartoes.append(Achado("Atenção:", " " + TEXTO_ATENCAO, atencao=True))
     return cartoes
+
+
+COLUNAS_TABELA = {
+    "nome": "Comorbidade",
+    "casos_com": "Casos (com)",
+    "taxa_com": "Letalidade (com)",
+    "casos_sem": "Casos (sem)",
+    "taxa_sem": "Letalidade (sem)",
+    "diferenca_pp": "Diferença",
+    "amostra": "Amostra pequena",
+}
+MARCA_AMOSTRA_PEQUENA = "●"
+
+
+def tabela_para_exibir(agregado_preparado: pd.DataFrame) -> pd.DataFrame:
+    """Tabela da tela: contagens inteiras, taxas e diferença em pontos (números, para a ordenação funcionar)."""
+    df = agregado_preparado
+    return pd.DataFrame({
+        "nome": df["nome"],
+        "casos_com": df["casos_com"],
+        "taxa_com": df["taxa_letalidade_com"] * 100,
+        "casos_sem": df["casos_sem"],
+        "taxa_sem": df["taxa_letalidade_sem"] * 100,
+        "diferenca_pp": df["diferenca_pp"],
+        "amostra": df["amostra_pequena"].map({True: MARCA_AMOSTRA_PEQUENA, False: ""}),
+    }).reset_index(drop=True)
+
+
+def cor_da_celula_de_diferenca(pontos: float) -> str:
+    """Estilo CSS do texto da diferença, na cor da sua faixa."""
+    return f"color: {COR_DA_CLASSE[classe_da_diferenca(pontos)]}"

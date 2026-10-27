@@ -11,10 +11,20 @@ from config import (
     CAMINHO_TODOS_ANOS,
     COR_COM_COMORBIDADE,
     COR_SEM_COMORBIDADE,
-    NOMES_COMORBIDADES,
+    LIMITE_AMOSTRA_PEQUENA,
 )
+from formatacao import fmt_inteiro
 from graficos import figura_dumbbell, figura_por_ano
-from indicadores import achados_comorbidades, celulas_da_comorbidade, kpis_comorbidades, preparar_agregado
+from indicadores import (
+    COLUNAS_TABELA,
+    MARCA_AMOSTRA_PEQUENA,
+    achados_comorbidades,
+    celulas_da_comorbidade,
+    cor_da_celula_de_diferenca,
+    kpis_comorbidades,
+    preparar_agregado,
+    tabela_para_exibir,
+)
 
 _agregado = preparar_agregado(pd.read_csv(CAMINHO_AGREGADO))
 _resumo = pd.read_csv(CAMINHO_RESUMO_GERAL)
@@ -55,33 +65,41 @@ with col_b.container(border=True, key="painel_achados"):
     titulo_painel("Principais achados")
     st.html(html_achados(achados_comorbidades(_agregado)))
 
-df = pd.read_csv(CAMINHO_AGREGADO)
-df["comorbidade"] = df["comorbidade"].map(NOMES_COMORBIDADES)
-
-# O CSV guarda a taxa em fração (0.571). Convertemos pra porcentagem uma única vez,
-# aqui na camada de apresentação — o arquivo em disco continua em fração.
-df["taxa_letalidade_com"] = df["taxa_letalidade_com"] * 100
-df["taxa_letalidade_sem"] = df["taxa_letalidade_sem"] * 100
-
-df = df.sort_values("taxa_letalidade_com", ascending=False)
-
-st.subheader("Tabela completa")
-# Seleciona só as colunas de exibição — o df também carrega obitos_com/desfecho_conhecido_com
-# etc., usados internamente pra agregar os anos com exatidão, mas que não aparecem na tela.
-df_tabela = df[["comorbidade", "casos_com", "taxa_letalidade_com", "casos_sem", "taxa_letalidade_sem"]].copy()
-df_tabela["casos_com"] = df_tabela["casos_com"].apply(lambda x: f"{x:,}".replace(",", "."))
-df_tabela["casos_sem"] = df_tabela["casos_sem"].apply(lambda x: f"{x:,}".replace(",", "."))
-st.dataframe(
-    df_tabela,
-    hide_index=True,
-    column_config={
-        "comorbidade": st.column_config.TextColumn("Comorbidade"),
-        "casos_com": st.column_config.TextColumn("Casos (com)"),
-        "taxa_letalidade_com": st.column_config.NumberColumn("Taxa de Letalidade % (com)", format="%.1f"),
-        "casos_sem": st.column_config.TextColumn("Casos (sem)"),
-        "taxa_letalidade_sem": st.column_config.NumberColumn("Taxa de Letalidade % (sem)", format="%.1f"),
-    },
+_tabela = tabela_para_exibir(_agregado)
+# Estilo por célula só colore o texto; os valores continuam números e a ordenação por coluna segue numérica.
+_estilo = (
+    _tabela.style
+    .map(cor_da_celula_de_diferenca, subset=["diferenca_pp"])
+    .map(lambda _: f"color: {COR_COM_COMORBIDADE}", subset=["taxa_com"])
 )
+with st.container(border=True, key="painel_tabela"):
+    _cabecalho, _botao = st.columns([4, 1])
+    with _cabecalho:
+        titulo_painel("Tabela completa")
+    _botao.download_button(
+        "Baixar CSV", data=CAMINHO_AGREGADO.read_bytes(), file_name=CAMINHO_AGREGADO.name, mime="text/csv",
+        key="baixar_agregado",
+    )
+    st.dataframe(
+        _estilo,
+        hide_index=True,
+        height="content",
+        column_config={
+            "nome": st.column_config.TextColumn(COLUNAS_TABELA["nome"]),
+            "casos_com": st.column_config.NumberColumn(COLUNAS_TABELA["casos_com"], format="localized"),
+            "taxa_com": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_com"], format="%.1f%%"),
+            "casos_sem": st.column_config.NumberColumn(COLUNAS_TABELA["casos_sem"], format="localized"),
+            "taxa_sem": st.column_config.NumberColumn(COLUNAS_TABELA["taxa_sem"], format="%.1f%%"),
+            "diferenca_pp": st.column_config.NumberColumn(COLUNAS_TABELA["diferenca_pp"], format="%+.1f p.p."),
+            "amostra": st.column_config.TextColumn(
+                COLUNAS_TABELA["amostra"], help=f"Menos de {fmt_inteiro(LIMITE_AMOSTRA_PEQUENA)} casos com a comorbidade",
+            ),
+        },
+    )
+    st.caption(
+        f"{MARCA_AMOSTRA_PEQUENA} amostra pequena (menos de {fmt_inteiro(LIMITE_AMOSTRA_PEQUENA)} casos com a "
+        "comorbidade): a taxa é menos estável. Os números de casos seguem o formato do seu navegador."
+    )
 
 with st.expander("Sobre este projeto / Metodologia"):
     st.markdown(

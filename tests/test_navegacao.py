@@ -88,3 +88,13 @@ def test_explorar_uma_comorbidade_acompanha_a_escolha():
     html = _html(tela)
     assert not tela.exception
     assert "27,1%" in html and "-11,2 p.p." in html
+
+
+def test_tabela_completa_tem_onze_linhas_numericas_e_botao_de_baixar_o_csv():
+    tela = AppTest.from_file(str(DASHBOARD), default_timeout=120).run()
+
+    assert not tela.exception
+    tabela = tela.dataframe[0].value
+    assert len(tabela) == 11 and tabela["taxa_com"].is_monotonic_decreasing
+    assert tabela["casos_com"].iloc[0] == 78513  # número, não texto: a ordenação por coluna fica numérica
+    assert [b.proto.label for b in tela.get("download_button")] == ["Baixar CSV"]

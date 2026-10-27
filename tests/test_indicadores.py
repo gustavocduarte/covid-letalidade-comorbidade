@@ -13,13 +13,17 @@ from config import (
     LIMITE_AMOSTRA_PEQUENA,
 )
 from indicadores import (
+    COLUNAS_TABELA,
+    MARCA_AMOSTRA_PEQUENA,
     achados_comorbidades,
     celulas_da_comorbidade,
     classe_da_diferenca,
+    cor_da_celula_de_diferenca,
     juntar_nomes,
     kpis_comorbidades,
     maior_risco,
     preparar_agregado,
+    tabela_para_exibir,
     totais_do_resumo,
 )
 
@@ -151,3 +155,20 @@ def test_achados_mais_de_uma_abaixo_usam_o_plural():
 def test_juntar_nomes():
     assert juntar_nomes([]) == "" and juntar_nomes(["A"]) == "A"
     assert juntar_nomes(["A", "B"]) == "A e B" and juntar_nomes(["A", "B", "C"]) == "A, B e C"
+
+
+def test_tabela_para_exibir_tem_numeros_na_ordem_das_colunas_e_marca_a_amostra_pequena():
+    tabela = tabela_para_exibir(preparar_agregado(_agregado_pequeno()))
+
+    assert list(tabela.columns) == list(COLUNAS_TABELA)
+    assert list(tabela["nome"]) == ["Doença Renal Crônica", "Síndrome de Down", "Asma"]
+    assert tabela["taxa_com"].tolist() == pytest.approx([50.0, 40.0, 25.0])
+    assert tabela["diferenca_pp"].tolist() == pytest.approx([10.0, 0.0, -10.0])
+    assert pd.api.types.is_numeric_dtype(tabela["casos_com"]) and pd.api.types.is_numeric_dtype(tabela["taxa_sem"])
+    assert tabela["amostra"].tolist() == ["", MARCA_AMOSTRA_PEQUENA, ""]
+
+
+def test_cor_da_celula_de_diferenca_segue_a_faixa():
+    assert cor_da_celula_de_diferenca(16.4) == f"color: {COR_COM_COMORBIDADE}"
+    assert cor_da_celula_de_diferenca(FAIXA_NEUTRA_PP - 0.1) == f"color: {COR_TEXTO_SECUNDARIO}"
+    assert cor_da_celula_de_diferenca(-11.2) == f"color: {COR_POSITIVO}"
